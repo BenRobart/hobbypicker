@@ -12,9 +12,10 @@ type Settings = { minutes: number; theme: string; deck: string };
 
 const PORT = Number(Deno.env.get("PORT")) || 4173;
 
-// A host that assigns PORT needs the server reachable on every interface.
-// Running locally with no PORT set, stay on loopback. HOST overrides both.
-const HOSTNAME = Deno.env.get("HOST") ?? (Deno.env.get("PORT") ? "0.0.0.0" : "127.0.0.1");
+// Bind everywhere by default: a host that cannot reach the server just fails
+// silently, which is a miserable thing to debug. HOST=127.0.0.1 restricts it,
+// and the start task in deno.json does exactly that for local runs.
+const HOSTNAME = Deno.env.get("HOST") || "0.0.0.0";
 
 const CARDS_KEY = ["cards"];
 const CARDS_BACKUP_KEY = ["cards_backup"];
