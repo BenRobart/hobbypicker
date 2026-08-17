@@ -1,15 +1,20 @@
 // Deno Deploy entry point. Same logic as server.js, storing everything in
 // Deno KV instead of JSON files on disk.
 //
-//   deno run --unstable-kv --allow-net --allow-read --allow-env main.js
+//   deno task start
 //
 // On Deno Deploy, set the entry point to main.js. KV is provisioned for you.
 
-import { handleApi } from './core.js';
+import { handleApi, canWriteFrom, tokenFor, writeCookie } from './core.js';
 
 const kv = await Deno.openKv();
 const page = await Deno.readTextFile(new URL('./public/index.html', import.meta.url));
-const TOKEN = Deno.env.get('DECK_TOKEN') ?? '';
+const KEY = Deno.env.get('DECK_TOKEN') ?? '';
+
+// Set DECK_PASSWORD in the Deploy dashboard to change it. Same default as the
+// Node server, so the two behave identically.
+const PASSWORD = Deno.env.get('DECK_PASSWORD') || 'qwerty';
+const WRITE_TOKEN = await tokenFor(PASSWORD);
 
 const store = {
   async read(name) {
@@ -25,18 +30,30 @@ const store = {
   },
 };
 
-function json(status, body) {
+function json(status, body, headers = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      ...headers,
+    },
   });
 }
 
 // With no DECK_TOKEN set the deck is open to anyone with the URL. Set one in the
-// Deploy dashboard and append ?key=... once; the page remembers it.
+// Deploy dashboard and append ?key=... once; the page remembers it. This gates
+// the whole app; the password below is a separate thing, and only gates writing.
 function allowed(url, request) {
-  if (!TOKEN) return true;
-  return url.searchParams.get('key') === TOKEN || request.headers.get('x-deck-key') === TOKEN;
+  if (!KEY) return true;
+  return url.searchParams.get('key') === KEY || request.headers.get('x-deck-key') === KEY;
+}
+
+// Deploy always terminates TLS in front of the app, so trust the forwarded
+// header the same way the Node server does.
+function isSecure(url, request) {
+  const forwarded = (request.headers.get('x-forwarded-proto') ?? '').split(',')[0].trim();
+  return forwarded ? forwarded === 'https' : url.protocol === 'https:';
 }
 
 Deno.serve(async (request) => {
@@ -57,13 +74,24 @@ Deno.serve(async (request) => {
 
   try {
     const body = request.method === 'GET' ? {} : await request.json().catch(() => ({}));
-    const { status, body: payload } = await handleApi({
+    const { status, body: payload, cookie } = await handleApi({
       method: request.method,
       pathname: url.pathname,
       body,
       store,
+      canWrite: canWriteFrom(request.headers.get('cookie'), WRITE_TOKEN),
+      token: WRITE_TOKEN,
     });
-    return json(status, payload);
+
+    const headers = cookie
+      ? {
+        'set-cookie': writeCookie(WRITE_TOKEN, {
+          unlock: cookie === 'unlock',
+          secure: isSecure(url, request),
+        }),
+      }
+      : {};
+    return json(status, payload, headers);
   } catch (err) {
     return json(500, { error: err.message });
   }

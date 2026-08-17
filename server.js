@@ -3,16 +3,19 @@ import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleApi } from './core.js';
+import { handleApi, canWriteFrom, tokenFor, writeCookie } from './core.js';
 
 const PORT = Number(process.env.PORT) || 4173;
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+// Set DECK_PASSWORD in the environment to change it.
+const PASSWORD = process.env.DECK_PASSWORD || 'qwerty';
+const TOKEN = await tokenFor(PASSWORD);
 
 const FILES = {
   cards: path.join(ROOT, 'cards.json'),
   decks: path.join(ROOT, 'decks.json'),
   columns: path.join(ROOT, 'columns.json'),
-  settings: path.join(ROOT, 'settings.json'),
 };
 
 // Serve from public/ when it is there, otherwise from alongside server.js.
@@ -68,14 +71,22 @@ const store = {
   },
 };
 
-function sendJson(res, status, payload) {
+function sendJson(res, status, payload, headers = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
     'Cache-Control': 'no-store',
+    ...headers,
   });
   res.end(body);
+}
+
+// Behind a proxy the socket is plain even when the browser is on https, so the
+// forwarded header decides whether the cookie can be marked Secure.
+function isSecure(req) {
+  const forwarded = String(req.headers['x-forwarded-proto'] ?? '').split(',')[0].trim();
+  return forwarded ? forwarded === 'https' : Boolean(req.socket.encrypted);
 }
 
 function readBody(req) {
@@ -128,13 +139,19 @@ const server = http.createServer(async (req, res) => {
   if (!url.pathname.startsWith('/api/')) return serveStatic(req, res, url);
 
   try {
-    const { status, body } = await handleApi({
+    const { status, body, cookie } = await handleApi({
       method: req.method,
       pathname: url.pathname,
       body: await readBody(req),
       store,
+      canWrite: canWriteFrom(req.headers.cookie, TOKEN),
+      token: TOKEN,
     });
-    sendJson(res, status, body);
+
+    const headers = cookie
+      ? { 'Set-Cookie': writeCookie(TOKEN, { unlock: cookie === 'unlock', secure: isSecure(req) }) }
+      : {};
+    sendJson(res, status, body, headers);
   } catch (err) {
     sendJson(res, 500, { error: err.message });
   }

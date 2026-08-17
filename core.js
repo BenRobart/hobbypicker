@@ -1,29 +1,66 @@
 // Shared by the Node server and the Deno one. Knows nothing about how things
 // are stored: it is handed a store with read(name) and write(name, value).
+//
+// The server keeps the deck and nothing else: cards, the columns they sit in,
+// and the decks those belong to. Preferences (theme, timer length, alarm, which
+// deck you are looking at) live in the browser, so the two deployments show the
+// same cards while each machine keeps its own way of looking at them.
 
-export const ICONS = [
+const ICONS = [
   'stack', 'music', 'quiet', 'bed', 'bolt', 'bulb',
   'book', 'game', 'pencil', 'sparkle', 'moon', 'heart', 'clock',
 ];
 
-const THEMES = new Set(['auto', 'dark', 'pastel']);
 const DEFAULT_DECK = { id: 'default', name: 'Cards' };
 const DEFAULT_COLUMN = { name: 'Cards', icon: 'stack' };
-const DEFAULT_SETTINGS = { minutes: 20, theme: 'auto', deck: DEFAULT_DECK.id };
 
 const ok = (body, status = 200) => ({ status, body });
 const fail = (error, status = 400) => ({ status, body: { error } });
+
+/* Write mode. The password itself never leaves the server: the cookie carries a
+   hash of it, derived rather than random, so it survives a restart and is the
+   same on every instance. Both servers share all of this, so the Node one and
+   the Deno one accept exactly the same cookie. */
+
+const WRITE_COOKIE = 'deck_write';
+
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function tokenFor(password) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Compares in constant time, so a wrong cookie cannot be guessed one character
+// at a time by watching how long the answer takes.
+function sameSecret(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function cookieToken(header) {
+  const entry = String(header ?? '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${WRITE_COOKIE}=`));
+  return entry ? entry.slice(WRITE_COOKIE.length + 1) : '';
+}
+
+export function canWriteFrom(header, token) {
+  return Boolean(token) && sameSecret(cookieToken(header), token);
+}
+
+export function writeCookie(token, { unlock, secure }) {
+  const life = unlock ? 'Max-Age=31536000' : 'Max-Age=0';
+  return `${WRITE_COOKIE}=${unlock ? token : ''}; Path=/; ${life}; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
+}
 
 function text(value, limit) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim().replace(/\s+/g, ' ').slice(0, limit);
   return trimmed || null;
-}
-
-function minutesOf(value) {
-  const minutes = Number(value);
-  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) return null;
-  return minutes;
 }
 
 /* Reading. None of these ever write. A store that holds nothing yields sensible
@@ -105,58 +142,43 @@ async function readCards(store, decks, columns) {
   });
 }
 
-async function readSettings(store, decks) {
-  const raw = await store.read('settings');
-  const stored = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-
-  return {
-    minutes: minutesOf(stored.minutes) ?? DEFAULT_SETTINGS.minutes,
-    theme: THEMES.has(stored.theme) ? stored.theme : DEFAULT_SETTINGS.theme,
-    deck: decks.some((deck) => deck.id === stored.deck) ? stored.deck : decks[0].id,
-  };
-}
-
 async function readAll(store) {
   const decks = await readDecks(store);
   const columns = await readColumns(store, decks);
-  const [cards, settings] = await Promise.all([
-    readCards(store, decks, columns),
-    readSettings(store, decks),
-  ]);
-  return { decks, columns, cards, settings };
+  const cards = await readCards(store, decks, columns);
+  return { decks, columns, cards };
 }
 
 /* Routing */
 
-export async function handleApi({ method, pathname, body = {}, store }) {
+// canWrite and token come from the server, which is the only part that can read
+// a cookie. A result carrying a cookie field asks the server to set or clear it;
+// the Secure flag is the server's to decide, since only it knows the protocol.
+export async function handleApi({ method, pathname, body = {}, store, canWrite = false, token = '' }) {
   const cardId = pathname.match(/^\/api\/cards\/([\w-]+)$/)?.[1];
   const deckId = pathname.match(/^\/api\/decks\/([\w-]+)$/)?.[1];
   const columnId = pathname.match(/^\/api\/columns\/([\w-]+)$/)?.[1];
 
   if (pathname === '/api/state' && method === 'GET') {
-    return ok(await readAll(store));
+    return ok({ ...(await readAll(store)), canWrite });
   }
 
-  if (pathname === '/api/settings' && method === 'PATCH') {
-    const decks = await readDecks(store);
-    const settings = await readSettings(store, decks);
+  if (pathname === '/api/unlock' && method === 'POST') {
+    await pause(300); // A guess costs a third of a second.
 
-    if ('minutes' in body) {
-      const minutes = minutesOf(body.minutes);
-      if (!minutes) return fail('Pick a whole number of minutes between 1 and 180.');
-      settings.minutes = minutes;
+    if (typeof body.password !== 'string' || !sameSecret(await tokenFor(body.password), token)) {
+      return fail('That is not the password.', 401);
     }
-    if ('theme' in body) {
-      if (!THEMES.has(body.theme)) return fail('Unknown theme.');
-      settings.theme = body.theme;
-    }
-    if ('deck' in body) {
-      if (!decks.some((deck) => deck.id === body.deck)) return fail('That deck is gone.', 404);
-      settings.deck = body.deck;
-    }
+    return { status: 200, body: { canWrite: true }, cookie: 'unlock' };
+  }
 
-    await store.write('settings', settings);
-    return ok(settings);
+  if (pathname === '/api/lock' && method === 'POST') {
+    return { status: 200, body: { canWrite: false }, cookie: 'lock' };
+  }
+
+  // Everything past here changes something, so it needs write mode.
+  if (method !== 'GET' && !canWrite) {
+    return fail('Locked. Turn on write mode to make changes.', 403);
   }
 
   /* Decks */

@@ -113,7 +113,7 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .wrap { max-width: 1080px; margin: 0 auto; }
+  .wrap { max-width: 980px; margin: 0 auto; }
 
   .masthead {
     display: flex;
@@ -141,6 +141,15 @@
     color: var(--muted);
     margin: 4px 0 0;
   }
+
+  .readonly {
+    margin-left: 10px;
+    padding: 2px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .readonly[hidden] { display: none; }
 
   .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
@@ -192,15 +201,17 @@
     letter-spacing: .08em;
     text-transform: uppercase;
     color: var(--muted);
-    width: 58px;
+    width: 78px;
     flex: none;
   }
 
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips[hidden] { display: none; }
 
   .chip {
     font-family: var(--mono);
     font-size: 12px;
+    line-height: 1.4;
     padding: 5px 11px;
     border-radius: 999px;
     border: 1px solid var(--rule);
@@ -227,17 +238,29 @@
     color: var(--ink);
   }
   .mins { width: 62px; }
+  .pass { width: 120px; font-family: var(--body); }
   .name-field { width: 180px; font-family: var(--body); }
+  /* Same box as a chip, minus the visible border, so the text sits on the same
+     line as the Lock button and starts at the same edge as every other row. */
+  .mode-state {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 5px 11px;
+    border: 1px solid transparent;
+    color: var(--muted);
+    align-self: center;
+  }
 
   .columns {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
     gap: 26px;
     margin-top: 32px;
     align-items: start;
   }
 
-  .col { --accent: var(--a1); }
+  .col { --accent: var(--a1); min-width: 0; }
 
   .col-head {
     display: flex;
@@ -258,6 +281,8 @@
   }
   .col-icon svg { width: 17px; height: 17px; display: block; }
   .col-icon:hover { opacity: .7; }
+  span.col-icon { cursor: default; }
+  span.col-icon:hover { opacity: 1; }
 
   .col-name {
     font-family: var(--mono);
@@ -346,6 +371,7 @@
     box-shadow: var(--shadow);
   }
   .card.dragging { opacity: .35; border-style: dashed; box-shadow: none; }
+  .locked .card { padding-left: 12px; }
 
   .grip {
     flex: none;
@@ -379,7 +405,7 @@
 
   .empty { font-size: 14px; color: var(--muted); padding: 14px 0; margin: 0; }
 
-  .add, .new-col {
+  .add {
     margin-top: 8px;
     width: 100%;
     text-align: left;
@@ -392,8 +418,7 @@
     padding: 11px 14px;
     cursor: pointer;
   }
-  .add:hover, .new-col:hover { color: var(--ink); border-color: var(--muted); }
-  .new-col { margin-top: 0; }
+  .add:hover { color: var(--ink); border-color: var(--muted); }
 
   .col.new { padding-top: 1px; }
   .col.new .palette { margin-top: 8px; }
@@ -471,8 +496,38 @@
   }
   .clock[hidden] { display: none; }
 
+  /* When time is up the clock takes the card's accent and breathes a couple of
+     times, so it reads across the room and still works with sound off. Reduced
+     motion strips the animation and leaves the colour. */
+  .clock.rang { color: var(--accent); animation: rang 1.1s ease-out 3; }
+
+  @keyframes rang {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+  }
+
   .done { font-size: 14px; color: var(--muted); margin: -8px 0 18px; }
   .done[hidden] { display: none; }
+
+  .drawn-alarm { margin: 0 0 14px; }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .toggle:hover { color: var(--ink); border-color: var(--muted); }
+  .toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .toggle svg { width: 14px; height: 14px; display: block; }
 
   .drawn-actions {
     display: flex;
@@ -528,18 +583,20 @@
   <header class="masthead">
     <div>
       <h1>Deck</h1>
-      <p class="tally" id="tally">Loading</p>
+      <p class="tally" id="tally"><span id="tallyCount">Loading</span><span class="readonly" id="readonly" hidden>Read only</span></p>
     </div>
     <div class="controls">
       <select class="picker" id="picker" aria-label="Which deck"></select>
       <button class="btn icon" id="cog" type="button" aria-expanded="false" aria-controls="settings" aria-label="Settings">
         <svg viewBox="0 0 16 16" aria-hidden="true">
-          <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
-            <circle cx="8" cy="8" r="3.4" />
-            <path d="M8 1.4V3M8 13v1.6M1.4 8H3M13 8h1.6M3.34 3.34 4.46 4.46M11.54 11.54l1.12 1.12M12.66 3.34 11.54 4.46M4.46 11.54l-1.12 1.12" />
+          <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.35 3.92 L6.32 1.72 L9.68 1.72 L9.65 3.92 L10.71 4.53 L12.6 3.4 L14.28 6.32 L12.36 7.39 L12.36 8.61 L14.28 9.68 L12.6 12.6 L10.71 11.47 L9.65 12.08 L9.68 14.28 L6.32 14.28 L6.35 12.08 L5.29 11.47 L3.4 12.6 L1.72 9.68 L3.64 8.61 L3.64 7.39 L1.72 6.32 L3.4 3.4 L5.29 4.53 Z" />
+            <circle cx="8" cy="8" r="2.3" />
           </g>
         </svg>
       </button>
+      <button class="btn" id="newDeck" type="button" hidden>New deck</button>
+      <button class="btn" id="newColumn" type="button" hidden>New column</button>
       <button class="draw-any" id="drawAny" type="button">Draw a card</button>
     </div>
   </header>
@@ -551,13 +608,27 @@
       <input class="mins" id="custom" type="number" min="1" max="180" inputmode="numeric" aria-label="Timer minutes">
     </div>
     <div class="setting">
+      <span class="setting-label">Alarm</span>
+      <div class="chips" id="alarms"></div>
+    </div>
+    <div class="setting">
       <span class="setting-label">Look</span>
       <div class="chips" id="themes"></div>
     </div>
     <div class="setting">
+      <span class="setting-label">Write mode</span>
+      <div class="chips" id="lockedControls">
+        <input class="mins pass" id="password" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password">
+        <button class="chip" id="unlock" type="button">Unlock</button>
+      </div>
+      <div class="chips" id="unlockedControls" hidden>
+        <span class="mode-state">On</span>
+        <button class="chip" id="lock" type="button">Lock</button>
+      </div>
+    </div>
+    <div class="setting">
       <span class="setting-label">Deck</span>
-      <div class="chips">
-        <button class="chip" id="newDeck" type="button">New deck</button>
+      <div class="chips" id="deckChips" hidden>
         <button class="chip" id="renameDeck" type="button">Rename</button>
         <button class="chip danger" id="deleteDeck" type="button">Delete</button>
       </div>
@@ -576,6 +647,12 @@
     <p class="drawn-text" id="drawnText"></p>
     <p class="clock" id="clock" hidden>20:00</p>
     <p class="done" id="doneNote" hidden></p>
+    <p class="drawn-alarm">
+      <button class="toggle" id="sheetAlarm" type="button" aria-pressed="true">
+        <span id="sheetAlarmIcon"></span>
+        <span id="sheetAlarmText">Alarm on</span>
+      </button>
+    </p>
     <div class="drawn-actions">
       <button class="btn primary" id="timerBtn" type="button">Start 20 minutes</button>
       <button class="btn" id="again" type="button">Draw again</button>
@@ -605,10 +682,25 @@ const ICONS = {
   clock: `<g ${STROKE}><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.6 1.7"/></g>`,
 };
 
+const BELL_BODY = '<path d="M8 2.4a3.7 3.7 0 0 0-3.7 3.7c0 3.1-1.1 4.2-1.1 4.2h9.6s-1.1-1.1-1.1-4.2A3.7 3.7 0 0 0 8 2.4Z"/><path d="M6.8 12.2a1.35 1.35 0 0 0 2.4 0"/>';
+const BELL = `<g ${STROKE}>${BELL_BODY}</g>`;
+const BELL_OFF = `<g ${STROKE}>${BELL_BODY}<path d="M2.9 2.9 13.1 13.1"/></g>`;
+
 const ICON_ORDER = Object.keys(ICONS);
 const ACCENTS = ['var(--a1)', 'var(--a2)', 'var(--a3)', 'var(--a4)', 'var(--a5)'];
 const PRESETS = [5, 10, 20, 30, 45, 60];
 const THEMES = [['auto', 'Auto'], ['dark', 'Dark'], ['pastel', 'Pastel']];
+// Labels read On/Off to match the toggle on the card. The stored values stay
+// chime/silent, so a preference already saved in a browser still applies.
+const ALARMS = [['chime', 'On'], ['silent', 'Off']];
+const ALARM_NAMES = new Set(ALARMS.map(([value]) => value));
+const THEME_NAMES = new Set(THEMES.map(([value]) => value));
+
+// A rising three-note figure, said twice, the second time more quietly. Notes
+// rather than a buzzer: it should tell you the time is up without making you
+// jump. Frequencies are C5, E5, G5.
+const PHRASE = [[523.25, 0], [659.25, 0.55], [783.99, 1.1]];
+const PASSES = [[0, 0.14], [2.2, 0.09]];
 
 const TOOLS = {
   grip: '<path d="M5.5 3.2h.01M5.5 8h.01M5.5 12.8h.01M10.5 3.2h.01M10.5 8h.01M10.5 12.8h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
@@ -617,27 +709,64 @@ const TOOLS = {
   remove: '<path d="M3.5 4.5h9M6.5 4.5V3h3v1.5M5 4.5l.6 8.5h4.8L11 4.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
+/* Preferences. All four live in this browser, never on the server: the deck is
+   shared between machines, how you like to look at it is not. That also means
+   they can be changed while the deck is read only. */
+
+const PREF = { theme: 'deck-theme', minutes: 'deck-minutes', alarm: 'deck-alarm', deck: 'deck-current' };
+
+function readPref(key, fallback, valid) {
+  try {
+    const stored = localStorage.getItem(key);
+    return valid(stored) ? stored : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function savePref(key, value) {
+  try { localStorage.setItem(key, value); } catch {}
+}
+
 let cards = [];
 let decks = [];
 let columns = [];
-let deckId = null;
-let minutes = 20;
-let theme = 'auto';
+let canWrite = false;
 let lastDrawnId = null;
 let timer = null;
-let remaining = 1200;
+let deadline = null;
+
+const isMinutes = (v) => Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 180;
+
+let theme = readPref(PREF.theme, 'auto', (v) => THEME_NAMES.has(v));
+let alarm = readPref(PREF.alarm, 'chime', (v) => ALARM_NAMES.has(v));
+let minutes = Number(readPref(PREF.minutes, '20', isMinutes));
+let deckId = readPref(PREF.deck, null, (v) => Boolean(v)); // checked against the decks once they load
+let remaining = minutes * 60;
+
+let audio = null;
+let ringing = null;
 let dragging = null;
 let confirmingDeckDelete = false;
 
 const el = {
-  tally: document.getElementById('tally'),
+  tallyCount: document.getElementById('tallyCount'),
+  readonly: document.getElementById('readonly'),
   picker: document.getElementById('picker'),
   cog: document.getElementById('cog'),
   settings: document.getElementById('settings'),
   chips: document.getElementById('chips'),
   custom: document.getElementById('custom'),
   themes: document.getElementById('themes'),
+  alarms: document.getElementById('alarms'),
+  password: document.getElementById('password'),
+  unlock: document.getElementById('unlock'),
+  lock: document.getElementById('lock'),
+  lockedControls: document.getElementById('lockedControls'),
+  unlockedControls: document.getElementById('unlockedControls'),
+  deckChips: document.getElementById('deckChips'),
   newDeck: document.getElementById('newDeck'),
+  newColumn: document.getElementById('newColumn'),
   renameDeck: document.getElementById('renameDeck'),
   deleteDeck: document.getElementById('deleteDeck'),
   columns: document.getElementById('columns'),
@@ -649,6 +778,9 @@ const el = {
   drawnText: document.getElementById('drawnText'),
   clock: document.getElementById('clock'),
   doneNote: document.getElementById('doneNote'),
+  sheetAlarm: document.getElementById('sheetAlarm'),
+  sheetAlarmIcon: document.getElementById('sheetAlarmIcon'),
+  sheetAlarmText: document.getElementById('sheetAlarmText'),
   timerBtn: document.getElementById('timerBtn'),
   again: document.getElementById('again'),
   close: document.getElementById('close'),
@@ -693,8 +825,16 @@ function paletteMarkup(selected) {
 
 function render() {
   const mine = inDeck();
-  el.tally.textContent = mine.length === 1 ? '1 card' : `${mine.length} cards`;
+  el.tallyCount.textContent = mine.length === 1 ? '1 card' : `${mine.length} cards`;
   el.drawAny.disabled = mine.length === 0;
+
+  document.body.classList.toggle('locked', !canWrite);
+  el.readonly.hidden = canWrite;
+  el.lockedControls.hidden = canWrite;
+  el.unlockedControls.hidden = !canWrite;
+  el.deckChips.hidden = !canWrite;
+  el.newDeck.hidden = !canWrite;
+  el.newColumn.hidden = !canWrite;
 
   el.picker.innerHTML = '';
   for (const deck of decks) {
@@ -717,19 +857,21 @@ function render() {
     section.style.setProperty('--accent', ACCENTS[index % ACCENTS.length]);
     section.innerHTML = `
       <div class="col-head">
-        <button class="col-icon" type="button" data-act="icon" aria-label="Change icon">${iconSvg(col.icon)}</button>
+        ${canWrite
+          ? `<button class="col-icon" type="button" data-act="icon" aria-label="Change icon">${iconSvg(col.icon)}</button>`
+          : `<span class="col-icon" aria-hidden="true">${iconSvg(col.icon)}</span>`}
         <span class="col-name"></span>
         <span class="col-count">${here.length}</span>
         <button class="draw-col" type="button" data-act="draw" ${here.length ? '' : 'disabled'}>Draw</button>
-        <span class="col-tools">
+        ${canWrite ? `<span class="col-tools">
           <button class="tool" type="button" data-act="rename" aria-label="Rename column">${toolSvg('edit')}</button>
           <button class="tool" type="button" data-act="delete-column" aria-label="Delete column"
             ${mineCols.length < 2 ? 'disabled' : ''}>${toolSvg('remove')}</button>
-        </span>
+        </span>` : ''}
       </div>
-      <div class="palette" hidden>${paletteMarkup(col.icon)}</div>
+      ${canWrite ? `<div class="palette" hidden>${paletteMarkup(col.icon)}</div>` : ''}
       <ul class="stack" data-stack></ul>
-      <button class="add" type="button" data-act="add">Add a card</button>`;
+      ${canWrite ? '<button class="add" type="button" data-act="add">Add a card</button>' : ''}`;
     section.querySelector('.col-name').textContent = col.name;
 
     const stack = section.querySelector('[data-stack]');
@@ -743,13 +885,14 @@ function render() {
         const li = document.createElement('li');
         li.className = 'card';
         li.dataset.id = card.id;
-        li.innerHTML = `
-          <span class="grip" draggable="true" aria-hidden="true">${toolSvg('grip')}</span>
+        li.innerHTML = canWrite
+          ? `<span class="grip" draggable="true" aria-hidden="true">${toolSvg('grip')}</span>
           <span class="card-text"></span>
           <span class="card-tools">
             <button class="tool" type="button" data-act="edit" aria-label="Edit card">${toolSvg('edit')}</button>
             <button class="tool" type="button" data-act="remove" aria-label="Remove card">${toolSvg('remove')}</button>
-          </span>`;
+          </span>`
+          : '<span class="card-text"></span>';
         li.querySelector('.card-text').textContent = card.text;
         stack.append(li);
       }
@@ -757,12 +900,6 @@ function render() {
 
     el.columns.append(section);
   });
-
-  const adder = document.createElement('section');
-  adder.className = 'col new';
-  adder.style.setProperty('--accent', ACCENTS[mineCols.length % ACCENTS.length]);
-  adder.innerHTML = '<button class="new-col" type="button" data-act="new-column">New column</button>';
-  el.columns.append(adder);
 }
 
 /* Columns ---------------------------------------------------------------- */
@@ -807,6 +944,20 @@ function askForName(anchor, { value = '', placeholder, onSave, restore }) {
   input.addEventListener('blur', () => setTimeout(stop, 120));
 }
 
+// The form lives in the grid only while it is being filled in, so nothing
+// permanent sits among the columns.
+function startNewColumn() {
+  const open = el.columns.querySelector('.col.new');
+  if (open) return open.querySelector('.field').focus();
+
+  const section = document.createElement('section');
+  section.className = 'col new';
+  section.style.setProperty('--accent', ACCENTS[myColumns().length % ACCENTS.length]);
+  el.columns.append(section);
+  openNewColumn(section);
+  section.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
 function openNewColumn(section) {
   let icon = 'stack';
   section.innerHTML = `
@@ -819,6 +970,12 @@ function openNewColumn(section) {
 
   const input = section.querySelector('.field');
   input.focus();
+
+  // Clicking a swatch moves focus for a moment, so check where focus actually
+  // landed before deciding the person has walked away.
+  input.addEventListener('blur', () => setTimeout(() => {
+    if (section.isConnected && document.activeElement !== input) render();
+  }, 150));
 
   section.querySelector('.palette').addEventListener('click', (event) => {
     const swatch = event.target.closest('.swatch');
@@ -850,9 +1007,6 @@ function openNewColumn(section) {
 
 async function handleColumnAction(act, target) {
   const section = target.closest('.col');
-
-  if (act === 'new-column') return openNewColumn(section);
-
   const column = columnOf(target);
   if (!column) return;
 
@@ -993,7 +1147,7 @@ function startAdd(section, column) {
 
       count.textContent = inColumn(column.id).length;
       section.querySelector('[data-act="draw"]').disabled = false;
-      el.tally.textContent = inDeck().length === 1 ? '1 card' : `${inDeck().length} cards`;
+      el.tallyCount.textContent = inDeck().length === 1 ? '1 card' : `${inDeck().length} cards`;
       el.drawAny.disabled = false;
 
       input.value = '';
@@ -1006,7 +1160,7 @@ function startAdd(section, column) {
 }
 
 document.addEventListener('click', async (event) => {
-  const swatch = event.target.closest('.col:not(.new) .swatch');
+  const swatch = canWrite && event.target.closest('.col:not(.new) .swatch');
   if (swatch) {
     const column = columnOf(swatch);
     try {
@@ -1023,8 +1177,9 @@ document.addEventListener('click', async (event) => {
   const target = event.target.closest('[data-act]');
   if (!target) return;
   const act = target.dataset.act;
+  if (!canWrite && act !== 'draw') return;
 
-  if (['new-column', 'draw', 'icon', 'rename', 'delete-column', 'add'].includes(act)) {
+  if (['draw', 'icon', 'rename', 'delete-column', 'add'].includes(act)) {
     return handleColumnAction(act, target);
   }
 
@@ -1065,6 +1220,7 @@ function cardAfter(stack, y) {
 }
 
 document.addEventListener('dragstart', (event) => {
+  if (!canWrite) return;
   const li = event.target.closest('.grip')?.closest('.card');
   if (!li) return;
 
@@ -1147,14 +1303,10 @@ async function saveArrangement() {
 
 /* Decks ------------------------------------------------------------------ */
 
-async function selectDeck(id) {
+function selectDeck(id) {
   deckId = id;
+  savePref(PREF.deck, id);
   render();
-  try {
-    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ deck: id }) });
-  } catch (err) {
-    toast(err.message);
-  }
 }
 
 function askInChip(button, { value = '', placeholder, onSave }) {
@@ -1198,9 +1350,13 @@ el.newDeck.addEventListener('click', () => {
       const created = await api('/api/decks', { method: 'POST', body: JSON.stringify({ name }) });
       decks.push(created.deck);
       columns = created.columns;
-      await selectDeck(created.deck.id);
+      selectDeck(created.deck.id);
     },
   });
+});
+
+el.newColumn.addEventListener('click', () => {
+  if (canWrite) startNewColumn();
 });
 
 el.renameDeck.addEventListener('click', () => {
@@ -1242,13 +1398,111 @@ el.deleteDeck.addEventListener('click', async () => {
     cards = cards.filter((card) => card.deck !== deckId);
     columns = columns.filter((col) => col.deck !== deckId);
     decks = decks.filter((deck) => deck.id !== deckId);
-    await selectDeck(decks[0].id);
+    selectDeck(decks[0].id);
   } catch (err) {
     toast(err.message);
   }
 });
 
 /* Settings --------------------------------------------------------------- */
+
+/* Alarm ------------------------------------------------------------------- */
+
+// Browsers only allow sound that a person asked for, so the audio context is
+// opened on the click that starts the timer and kept for later.
+function openAudio() {
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return null;
+  if (!audio) {
+    try { audio = new Ctor(); } catch { return null; }
+  }
+  if (audio.state === 'suspended') audio.resume().catch(() => {});
+  return audio;
+}
+
+// One soft strike: a sine with a quiet octave above it for a little shimmer, a
+// slow attack and a long tail, so the note arrives rather than interrupts.
+// Returns its oscillators so the chime can be stopped part way through.
+function strike(ctx, out, freq, at, gain) {
+  const made = [];
+
+  for (const [ratio, share, length] of [[1, 1, 2.2], [2, 0.3, 1.6]]) {
+    const level = gain * share;
+    const osc = ctx.createOscillator();
+    const vol = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq * ratio;
+    vol.gain.setValueAtTime(0.0001, at);
+    vol.gain.exponentialRampToValueAtTime(level, at + 0.06);
+    vol.gain.exponentialRampToValueAtTime(0.0001, at + length);
+
+    osc.connect(vol).connect(out);
+    osc.start(at);
+    osc.stop(at + length + 0.1);
+    made.push(osc);
+  }
+
+  return made;
+}
+
+function playChime() {
+  const ctx = openAudio();
+  if (!ctx) return;
+
+  stopChime(); // never let two chimes overlap
+
+  // Everything runs through one gain, so the whole thing can be faded at once.
+  const out = ctx.createGain();
+  out.gain.value = 1;
+  out.connect(ctx.destination);
+
+  const start = ctx.currentTime + 0.05;
+  const oscillators = [];
+  for (const [offset, gain] of PASSES) {
+    for (const [freq, at] of PHRASE) {
+      oscillators.push(...strike(ctx, out, freq, start + offset + at, gain));
+    }
+  }
+
+  const token = {};
+  ringing = { ctx, out, oscillators, token };
+
+  // Forget it once it has finished on its own.
+  const ends = start + PASSES[PASSES.length - 1][0] + PHRASE[PHRASE.length - 1][1] + 2.3;
+  setTimeout(() => {
+    if (ringing && ringing.token === token) ringing = null;
+  }, Math.max(0, (ends - ctx.currentTime) * 1000));
+}
+
+// Cuts the sound off wherever it has got to, over 80ms so it fades rather than
+// clicking. Safe to call when nothing is playing.
+function stopChime() {
+  if (!ringing) return;
+
+  const { ctx, out, oscillators } = ringing;
+  ringing = null;
+
+  const now = ctx.currentTime;
+  try {
+    out.gain.cancelScheduledValues(now);
+    out.gain.setValueAtTime(out.gain.value, now);
+    out.gain.linearRampToValueAtTime(0, now + 0.08);
+  } catch {}
+
+  for (const osc of oscillators) {
+    try { osc.stop(now + 0.09); } catch {}
+  }
+}
+
+function setAlarm(next) {
+  alarm = next;
+  savePref(PREF.alarm, next);
+  syncSettings();
+
+  if (next === 'silent') return stopChime();
+  if (!timer) playChime(); // hear what you chose, unless a countdown is running
+}
 
 function lengthWords() {
   return minutes === 1 ? '1 minute' : `${minutes} minutes`;
@@ -1261,10 +1515,15 @@ function clockText() {
 }
 
 function resetTimer() {
+  // Covers closing the card, drawing another one, and pressing Reset: the
+  // chime should never outlast the card it belongs to.
+  stopChime();
   clearInterval(timer);
   timer = null;
+  deadline = null;
   remaining = minutes * 60;
   el.clock.hidden = true;
+  el.clock.classList.remove('rang');
   el.clock.textContent = clockText();
   el.doneNote.hidden = true;
   el.doneNote.textContent = `That is ${lengthWords()}. Carry on or stop, either is fine.`;
@@ -1283,6 +1542,16 @@ function buildChips() {
     el.chips.append(chip);
   }
 
+  for (const [value, label] of ALARMS) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.dataset.alarm = value;
+    chip.textContent = label;
+    chip.addEventListener('click', () => setAlarm(value));
+    el.alarms.append(chip);
+  }
+
   for (const [value, label] of THEMES) {
     const chip = document.createElement('button');
     chip.className = 'chip';
@@ -1298,47 +1567,78 @@ function syncSettings() {
   for (const chip of el.chips.children) {
     chip.setAttribute('aria-pressed', String(Number(chip.dataset.min) === minutes));
   }
+  for (const chip of el.alarms.children) {
+    chip.setAttribute('aria-pressed', String(chip.dataset.alarm === alarm));
+  }
+
+  // The card's toggle and the settings chips are two views of one setting.
+  const on = alarm === 'chime';
+  el.sheetAlarm.setAttribute('aria-pressed', String(on));
+  el.sheetAlarmIcon.innerHTML = svg(on ? BELL : BELL_OFF);
+  el.sheetAlarmText.textContent = on ? 'Alarm on' : 'Alarm off';
   for (const chip of el.themes.children) {
     chip.setAttribute('aria-pressed', String(chip.dataset.theme === theme));
   }
   if (document.activeElement !== el.custom) el.custom.value = minutes;
 }
 
-async function setMinutes(next) {
+function setMinutes(next) {
   const value = Number(next);
   if (!Number.isInteger(value) || value < 1 || value > 180) {
     return toast('Pick a whole number of minutes between 1 and 180.');
   }
-  try {
-    const saved = await api('/api/settings', {
-      method: 'PATCH',
-      body: JSON.stringify({ minutes: value }),
-    });
-    minutes = saved.minutes;
-    resetTimer();
-    syncSettings();
-  } catch (err) {
-    toast(err.message);
-  }
-}
-
-function paintTheme(next) {
-  theme = next;
-  document.documentElement.dataset.theme = next;
-  try { localStorage.setItem('deck-theme', next); } catch {}
+  minutes = value;
+  savePref(PREF.minutes, value);
+  resetTimer();
   syncSettings();
 }
 
-async function setTheme(next) {
-  const previous = theme;
-  paintTheme(next);
+function setTheme(next) {
+  theme = next;
+  document.documentElement.dataset.theme = next;
+  savePref(PREF.theme, next);
+  syncSettings();
+}
+
+/* Write mode ------------------------------------------------------------- */
+
+async function unlock() {
+  const password = el.password.value;
+  if (!password) return;
+
+  el.unlock.disabled = true;
   try {
-    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ theme: next }) });
+    const result = await api('/api/unlock', { method: 'POST', body: JSON.stringify({ password }) });
+    canWrite = Boolean(result.canWrite);
+    el.password.value = '';
+    render();
+    toast('Write mode is on.');
   } catch (err) {
-    paintTheme(previous);
     toast(err.message);
+  } finally {
+    el.unlock.disabled = false;
   }
 }
+
+el.unlock.addEventListener('click', unlock);
+el.password.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') unlock();
+});
+
+el.lock.addEventListener('click', async () => {
+  try {
+    await api('/api/lock', { method: 'POST' });
+    canWrite = false;
+    render();
+    toast('Write mode is off.');
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+el.sheetAlarm.addEventListener('click', () => {
+  setAlarm(alarm === 'chime' ? 'silent' : 'chime');
+});
 
 el.cog.addEventListener('click', () => {
   const open = el.settings.hidden;
@@ -1380,29 +1680,56 @@ function show(card) {
   el.close.focus();
 }
 
+function ring() {
+  clearInterval(timer);
+  timer = null;
+  deadline = null;
+  remaining = 0;
+  el.clock.textContent = clockText();
+  el.clock.classList.add('rang');
+  el.doneNote.hidden = false;
+  el.timerBtn.textContent = 'Reset';
+  if (alarm === 'chime') playChime();
+}
+
+// Worked out from the clock rather than by counting intervals, because a
+// background tab has its timers throttled and the countdown would otherwise
+// finish late by however long you were away.
+function tick() {
+  const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+  if (left === remaining) return;
+
+  remaining = left;
+  el.clock.textContent = clockText();
+  if (remaining === 0) ring();
+}
+
 el.timerBtn.addEventListener('click', () => {
   if (timer) {
     clearInterval(timer);
     timer = null;
+    deadline = null;
     el.timerBtn.textContent = 'Resume';
     return;
   }
   if (remaining === 0) return resetTimer();
 
+  // This click is the permission the browser needs to make a sound later on.
+  if (alarm === 'chime') openAudio();
+
   el.clock.hidden = false;
+  el.clock.classList.remove('rang');
   el.doneNote.hidden = true;
   el.clock.textContent = clockText();
   el.timerBtn.textContent = 'Pause';
 
-  timer = setInterval(() => {
-    remaining -= 1;
-    el.clock.textContent = clockText();
-    if (remaining > 0) return;
-    clearInterval(timer);
-    timer = null;
-    el.doneNote.hidden = false;
-    el.timerBtn.textContent = 'Reset';
-  }, 1000);
+  deadline = Date.now() + remaining * 1000;
+  timer = setInterval(tick, 250);
+});
+
+// Coming back to a throttled tab should show the right time straight away.
+document.addEventListener('visibilitychange', () => {
+  if (timer) tick();
 });
 
 function closeSheet() {
@@ -1425,20 +1752,29 @@ document.addEventListener('keydown', (event) => {
 
 buildChips();
 
+// Preferences are already known, so the page can settle into the right theme
+// and timer before the deck arrives.
+document.documentElement.dataset.theme = theme;
+resetTimer();
+syncSettings();
+
 api('/api/state')
   .then((state) => {
     cards = state.cards;
     decks = state.decks;
     columns = state.columns;
-    deckId = state.settings.deck;
-    minutes = state.settings.minutes;
-    paintTheme(state.settings.theme);
-    resetTimer();
-    syncSettings();
+    canWrite = Boolean(state.canWrite);
+
+    // The deck this machine was last on, unless it has since been deleted.
+    if (!decks.some((deck) => deck.id === deckId)) deckId = decks[0].id;
+    savePref(PREF.deck, deckId);
+
     render();
   })
   .catch((err) => {
-    el.tally.textContent = 'Deck not loaded';
+    el.tallyCount.textContent = 'Deck not loaded';
+    el.drawAny.disabled = true;
+    document.body.classList.add('locked');
     toast(err.message);
   });
 </script>
