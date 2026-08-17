@@ -1,6 +1,12 @@
 {
   "tasks": {
-    "start": "deno run --allow-net --allow-read --allow-env --allow-write server.ts"
+    "start": "HOST=127.0.0.1 deno run --allow-net --allow-read --allow-env --allow-write server.ts"
   },
-  "unstable": ["kv"]
+  "unstable": ["kv"],
+  "deploy": {
+    "runtime": {
+      "type": "dynamic",
+      "entrypoint": "./server.ts"
+    }
+  }
 }
