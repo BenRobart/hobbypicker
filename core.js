@@ -11,6 +11,11 @@ const ICONS = [
   'book', 'game', 'pencil', 'sparkle', 'moon', 'heart', 'clock',
 ];
 
+// Bumped whenever the page and the API need to agree on something. Reported by
+// /api/state so a deployment running older code announces itself instead of
+// failing somewhere further down with a confusing error.
+export const BUILD = '2026-08-17';
+
 const DEFAULT_DECK = { id: 'default', name: 'Cards' };
 const DEFAULT_COLUMN = { name: 'Cards', icon: 'stack' };
 
@@ -160,7 +165,7 @@ export async function handleApi({ method, pathname, body = {}, store, canWrite =
   const columnId = pathname.match(/^\/api\/columns\/([\w-]+)$/)?.[1];
 
   if (pathname === '/api/state' && method === 'GET') {
-    return ok({ ...(await readAll(store)), canWrite });
+    return ok({ ...(await readAll(store)), canWrite, build: BUILD });
   }
 
   if (pathname === '/api/unlock' && method === 'POST') {

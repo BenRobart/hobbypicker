@@ -10,5 +10,11 @@
     "name": "Without music",
     "icon": "quiet",
     "deck": "default"
+  },
+  {
+    "id": "f874146e-0be9-40df-a33b-18fa85a5c66f",
+    "name": "t",
+    "icon": "stack",
+    "deck": "default"
   }
 ]

@@ -616,6 +616,10 @@
       <div class="chips" id="themes"></div>
     </div>
     <div class="setting">
+      <span class="setting-label">Click away</span>
+      <div class="chips" id="clickaways"></div>
+    </div>
+    <div class="setting">
       <span class="setting-label">Write mode</span>
       <div class="chips" id="lockedControls">
         <input class="mins pass" id="password" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password">
@@ -664,6 +668,9 @@
 <div class="toast" id="toast" hidden></div>
 
 <script>
+// Must match BUILD in core.js. A mismatch means one side is a stale deployment.
+const BUILD = '2026-08-17';
+
 const STROKE = 'fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"';
 
 const ICONS = {
@@ -694,6 +701,8 @@ const THEMES = [['auto', 'Auto'], ['dark', 'Dark'], ['pastel', 'Pastel']];
 // chime/silent, so a preference already saved in a browser still applies.
 const ALARMS = [['chime', 'On'], ['silent', 'Off']];
 const ALARM_NAMES = new Set(ALARMS.map(([value]) => value));
+const CLICKAWAYS = [['save', 'Save'], ['discard', 'Discard']];
+const CLICKAWAY_NAMES = new Set(CLICKAWAYS.map(([value]) => value));
 const THEME_NAMES = new Set(THEMES.map(([value]) => value));
 
 // A rising three-note figure, said twice, the second time more quietly. Notes
@@ -713,7 +722,13 @@ const TOOLS = {
    shared between machines, how you like to look at it is not. That also means
    they can be changed while the deck is read only. */
 
-const PREF = { theme: 'deck-theme', minutes: 'deck-minutes', alarm: 'deck-alarm', deck: 'deck-current' };
+const PREF = {
+  theme: 'deck-theme',
+  minutes: 'deck-minutes',
+  alarm: 'deck-alarm',
+  deck: 'deck-current',
+  clickAway: 'deck-clickaway',
+};
 
 function readPref(key, fallback, valid) {
   try {
@@ -742,7 +757,12 @@ let theme = readPref(PREF.theme, 'auto', (v) => THEME_NAMES.has(v));
 let alarm = readPref(PREF.alarm, 'chime', (v) => ALARM_NAMES.has(v));
 let minutes = Number(readPref(PREF.minutes, '20', isMinutes));
 let deckId = readPref(PREF.deck, null, (v) => Boolean(v)); // checked against the decks once they load
+let clickAway = readPref(PREF.clickAway, 'save', (v) => CLICKAWAY_NAMES.has(v));
 let remaining = minutes * 60;
+
+// Enter always saves and Escape always discards. This only decides what walking
+// away from a half-finished field does.
+const savesOnBlur = () => clickAway === 'save';
 
 let audio = null;
 let ringing = null;
@@ -759,6 +779,7 @@ const el = {
   custom: document.getElementById('custom'),
   themes: document.getElementById('themes'),
   alarms: document.getElementById('alarms'),
+  clickaways: document.getElementById('clickaways'),
   password: document.getElementById('password'),
   unlock: document.getElementById('unlock'),
   lock: document.getElementById('lock'),
@@ -928,9 +949,8 @@ function askForName(anchor, { value = '', placeholder, onSave, restore }) {
     else input.replaceWith(anchor);
   };
 
-  input.addEventListener('keydown', async (event) => {
-    if (event.key === 'Escape') return stop();
-    if (event.key !== 'Enter') return;
+  const commit = async () => {
+    if (settled) return;
     const name = input.value.trim();
     if (!name) return stop();
     settled = true;
@@ -940,8 +960,13 @@ function askForName(anchor, { value = '', placeholder, onSave, restore }) {
       toast(err.message);
       render();
     }
+  };
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key === 'Enter') return commit();
   });
-  input.addEventListener('blur', () => setTimeout(stop, 120));
+  input.addEventListener('blur', () => setTimeout(savesOnBlur() ? commit : stop, 120));
 }
 
 // The form lives in the grid only while it is being filled in, so nothing
@@ -971,10 +996,35 @@ function openNewColumn(section) {
   const input = section.querySelector('.field');
   input.focus();
 
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    render();
+  };
+
+  const create = async () => {
+    if (settled) return;
+    const name = input.value.trim();
+    if (!name) return stop();
+    settled = true;
+    try {
+      columns.push(await api('/api/columns', {
+        method: 'POST',
+        body: JSON.stringify({ name, icon, deck: deckId }),
+      }));
+    } catch (err) {
+      toast(err.message);
+    }
+    render();
+  };
+
   // Clicking a swatch moves focus for a moment, so check where focus actually
   // landed before deciding the person has walked away.
   input.addEventListener('blur', () => setTimeout(() => {
-    if (section.isConnected && document.activeElement !== input) render();
+    if (!section.isConnected || document.activeElement === input) return;
+    if (savesOnBlur()) create();
+    else stop();
   }, 150));
 
   section.querySelector('.palette').addEventListener('click', (event) => {
@@ -987,21 +1037,9 @@ function openNewColumn(section) {
     input.focus();
   });
 
-  input.addEventListener('keydown', async (event) => {
-    if (event.key === 'Escape') return render();
-    if (event.key !== 'Enter') return;
-    const name = input.value.trim();
-    if (!name) return render();
-
-    try {
-      columns.push(await api('/api/columns', {
-        method: 'POST',
-        body: JSON.stringify({ name, icon, deck: deckId }),
-      }));
-    } catch (err) {
-      toast(err.message);
-    }
-    render();
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key === 'Enter') return create();
   });
 }
 
@@ -1091,7 +1129,7 @@ function startEdit(li, card) {
     if (event.key === 'Enter') finish(true);
     if (event.key === 'Escape') finish(false);
   });
-  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('blur', () => finish(savesOnBlur()));
 }
 
 function startAdd(section, column) {
@@ -1117,6 +1155,13 @@ function startAdd(section, column) {
     input.replaceWith(button);
   };
 
+  const save = async (text) => {
+    cards.push(await api('/api/cards', {
+      method: 'POST',
+      body: JSON.stringify({ text, column: column.id }),
+    }));
+  };
+
   input.addEventListener('keydown', async (event) => {
     if (event.key === 'Escape') return stop();
     if (event.key !== 'Enter') return;
@@ -1124,10 +1169,7 @@ function startAdd(section, column) {
     if (!text) return stop();
 
     try {
-      cards.push(await api('/api/cards', {
-        method: 'POST',
-        body: JSON.stringify({ text, column: column.id }),
-      }));
+      await save(text);
       const count = section.querySelector('.col-count');
       const stack = section.querySelector('[data-stack]');
       stack.querySelector('.empty')?.remove();
@@ -1150,13 +1192,30 @@ function startAdd(section, column) {
       el.tallyCount.textContent = inDeck().length === 1 ? '1 card' : `${inDeck().length} cards`;
       el.drawAny.disabled = false;
 
+      // The field stays open so several cards can be typed in a row.
       input.value = '';
       input.focus();
     } catch (err) {
       toast(err.message);
     }
   });
-  input.addEventListener('blur', () => setTimeout(stop, 120));
+
+  // Clicking away is the end of the run, so add what is in the field and close.
+  input.addEventListener('blur', () => setTimeout(async () => {
+    if (settled) return;
+    const text = input.value.trim();
+    if (!savesOnBlur() || !text) return stop();
+
+    settled = true;
+    hint.remove();
+    input.replaceWith(button);
+    try {
+      await save(text);
+    } catch (err) {
+      toast(err.message);
+    }
+    render();
+  }, 120));
 }
 
 document.addEventListener('click', async (event) => {
@@ -1326,19 +1385,24 @@ function askInChip(button, { value = '', placeholder, onSave }) {
     input.replaceWith(button);
   };
 
-  input.addEventListener('keydown', async (event) => {
-    if (event.key === 'Escape') return stop();
-    if (event.key !== 'Enter') return;
+  const commit = async () => {
+    if (settled) return;
     const name = input.value.trim();
-    if (!name) return stop();
-    stop();
+    if (!name) return stop(); // nothing typed is nothing to save
+    settled = true;
+    input.replaceWith(button);
     try {
       await onSave(name);
     } catch (err) {
       toast(err.message);
     }
+  };
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key === 'Enter') return commit();
   });
-  input.addEventListener('blur', () => setTimeout(stop, 120));
+  input.addEventListener('blur', () => setTimeout(savesOnBlur() ? commit : stop, 120));
 }
 
 el.picker.addEventListener('change', () => selectDeck(el.picker.value));
@@ -1552,6 +1616,16 @@ function buildChips() {
     el.alarms.append(chip);
   }
 
+  for (const [value, label] of CLICKAWAYS) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.dataset.clickaway = value;
+    chip.textContent = label;
+    chip.addEventListener('click', () => setClickAway(value));
+    el.clickaways.append(chip);
+  }
+
   for (const [value, label] of THEMES) {
     const chip = document.createElement('button');
     chip.className = 'chip';
@@ -1579,6 +1653,9 @@ function syncSettings() {
   for (const chip of el.themes.children) {
     chip.setAttribute('aria-pressed', String(chip.dataset.theme === theme));
   }
+  for (const chip of el.clickaways.children) {
+    chip.setAttribute('aria-pressed', String(chip.dataset.clickaway === clickAway));
+  }
   if (document.activeElement !== el.custom) el.custom.value = minutes;
 }
 
@@ -1590,6 +1667,12 @@ function setMinutes(next) {
   minutes = value;
   savePref(PREF.minutes, value);
   resetTimer();
+  syncSettings();
+}
+
+function setClickAway(next) {
+  clickAway = next;
+  savePref(PREF.clickAway, next);
   syncSettings();
 }
 
@@ -1760,6 +1843,21 @@ syncSettings();
 
 api('/api/state')
   .then((state) => {
+    // A reply missing any of this comes from an older version of the server.
+    // Say so here rather than failing later on with something cryptic.
+    const shapeOk = state
+      && Array.isArray(state.cards)
+      && Array.isArray(state.decks) && state.decks.length
+      && Array.isArray(state.columns) && state.columns.length;
+
+    if (!shapeOk) {
+      throw new Error('The server did not send a full deck, so it is running an older version than this page. Redeploy it.');
+    }
+
+    if (state.build !== BUILD) {
+      toast(`This page is ${BUILD} and the server is ${state.build ?? 'older'}. One of them needs redeploying.`);
+    }
+
     cards = state.cards;
     decks = state.decks;
     columns = state.columns;
