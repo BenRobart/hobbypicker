@@ -11,7 +11,10 @@ type Deck = { id: string; name: string };
 type Settings = { minutes: number; theme: string; deck: string };
 
 const PORT = Number(Deno.env.get("PORT")) || 4173;
-const ON_DEPLOY = Boolean(Deno.env.get("DENO_DEPLOYMENT_ID"));
+
+// A host that assigns PORT needs the server reachable on every interface.
+// Running locally with no PORT set, stay on loopback. HOST overrides both.
+const HOSTNAME = Deno.env.get("HOST") ?? (Deno.env.get("PORT") ? "0.0.0.0" : "127.0.0.1");
 
 const CARDS_KEY = ["cards"];
 const CARDS_BACKUP_KEY = ["cards_backup"];
@@ -361,9 +364,8 @@ function handler(req: Request): Promise<Response> | Response {
   return handleApi(req, url).catch((err) => json({ error: err.message }, 500));
 }
 
-if (ON_DEPLOY) {
-  Deno.serve(handler);
-} else {
-  Deno.serve({ port: PORT, hostname: "127.0.0.1" }, handler);
-  console.log(`Deck running at http://localhost:${PORT}`);
-}
+Deno.serve({
+  port: PORT,
+  hostname: HOSTNAME,
+  onListen: ({ hostname, port }) => console.log(`Deck running at http://${hostname}:${port}`),
+}, handler);

@@ -633,7 +633,18 @@ async function api(path, options = {}) {
   } catch {
     throw new Error('Cannot reach the server. Is it still running?');
   }
-  const data = await res.json().catch(() => ({}));
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    // A static file host answers with HTML or a bare 405 here, so say what that
+    // means rather than carrying on with half a response.
+    throw new Error(
+      `The server replied to ${path} with something that is not JSON (${res.status}). It is serving files rather than running the app.`,
+    );
+  }
+
   if (!res.ok) throw new Error(data.error || 'Something went wrong.');
   return data;
 }
@@ -1193,6 +1204,9 @@ buildChips();
 
 api('/api/state')
   .then((state) => {
+    if (!state || !Array.isArray(state.cards) || !Array.isArray(state.decks) || !state.settings) {
+      throw new Error('The server did not return a deck. Check it is running the app, not just serving files.');
+    }
     cards = state.cards;
     decks = state.decks;
     deckId = state.settings.deck;
@@ -1204,6 +1218,7 @@ api('/api/state')
   })
   .catch((err) => {
     el.tally.textContent = 'Deck not loaded';
+    el.drawAny.disabled = true;
     toast(err.message);
   });
 </script>
