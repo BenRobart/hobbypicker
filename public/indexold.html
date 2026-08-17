@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck</title>
+<script>
+  // Reapply the last theme before first paint. The server is still the source
+  // of truth; this only stops a flash of the wrong colours on load.
+  try {
+    const cached = localStorage.getItem('deck-theme');
+    if (cached) document.documentElement.dataset.theme = cached;
+  } catch {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="auto"] {
+    --paper: #E7E8EC;
+    --surface: #FBFBFC;
+    --ink: #171A20;
+    --muted: #6C7280;
+    --rule: #D3D6DD;
+    --action: #171A20;
+    --action-text: #FBFBFC;
+    --accent-1: #2C43C9;
+    --accent-2: #4A4F5C;
+    --accent-3: #1F6F52;
+    --accent-4: #98511B;
+    --accent-5: #6B3B8F;
+    --accent-6: #A3384F;
+    --radius: 3px;
+    --glow: none;
+    --shadow: 0 1px 2px rgba(23, 26, 32, .06), 0 6px 18px rgba(23, 26, 32, .05);
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    [data-theme="auto"] {
+      --paper: #14161B;
+      --surface: #1C1F27;
+      --ink: #E9EAEE;
+      --muted: #8F95A3;
+      --rule: #2A2E38;
+      --action: #E9EAEE;
+      --action-text: #14161B;
+      --accent-1: #8093FF;
+      --accent-2: #9BA2B0;
+      --accent-3: #63C39B;
+      --accent-4: #E0A163;
+      --accent-5: #B98CE0;
+      --accent-6: #F0819A;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .22);
+    }
+  }
+
+  [data-theme="dark"] {
+    --paper: #14161B;
+    --surface: #1C1F27;
+    --ink: #E9EAEE;
+    --muted: #8F95A3;
+    --rule: #2A2E38;
+    --action: #E9EAEE;
+    --action-text: #14161B;
+    --accent-1: #8093FF;
+    --accent-2: #9BA2B0;
+    --accent-3: #63C39B;
+    --accent-4: #E0A163;
+    --accent-5: #B98CE0;
+    --accent-6: #F0819A;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .22);
+  }
+
+  [data-theme="pastel"] {
+    --paper: #FFF0F6;
+    --surface: #FFFFFF;
+    --ink: #4E2A3E;
+    --muted: #B47C9A;
+    --rule: #FBD8E7;
+    --action: #E4649E;
+    --action-text: #FFFFFF;
+    --accent-1: #E4649E;
+    --accent-2: #A98FC4;
+    --accent-3: #4FA98D;
+    --accent-4: #DE9048;
+    --accent-5: #7B93DE;
+    --accent-6: #C86BC0;
+    --radius: 14px;
+    --glow: 0 0 0 6px rgba(228, 100, 158, .09);
+    --shadow: 0 1px 2px rgba(196, 120, 158, .12), 0 8px 22px rgba(196, 120, 158, .16);
+  }
+
+  [data-theme="pastel"] body {
+    background-image:
+      radial-gradient(60% 45% at 88% 0%, rgba(255, 214, 232, .95), transparent 70%),
+      radial-gradient(50% 40% at 4% 8%, rgba(226, 216, 255, .7), transparent 72%);
+    background-attachment: fixed;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 40px 24px 80px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  .masthead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 40px;
+    letter-spacing: -.02em;
+    margin: 0;
+  }
+
+  .tally {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 4px 0 0;
+  }
+
+  .readonly {
+    margin-left: 10px;
+    padding: 2px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    color: var(--muted);
+  }
+  .readonly[hidden] { display: none; }
+
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .picker {
+    font-family: var(--body);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 9px 14px;
+    max-width: 190px;
+    cursor: pointer;
+  }
+  .picker:hover { border-color: var(--muted); }
+
+  .draw-any {
+    font-family: var(--body);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--action-text);
+    background: var(--action);
+    border: 0;
+    border-radius: 999px;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: opacity .15s ease;
+  }
+  .draw-any:hover { opacity: .84; }
+  .draw-any:disabled { opacity: .35; cursor: default; }
+
+  .settings {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .settings[hidden] { display: none; }
+
+  .setting { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+  .setting-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    width: 58px;
+    flex: none;
+  }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips[hidden] { display: none; }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: none;
+    color: var(--muted);
+    text-decoration: none;
+    display: inline-block;
+    cursor: pointer;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--muted); }
+  .chip[aria-pressed="true"] {
+    background: var(--action);
+    color: var(--action-text);
+    border-color: var(--action);
+  }
+  .chip:disabled { opacity: .4; cursor: default; }
+  .chip.danger { color: var(--accent-6); }
+
+  .mins, .name-field {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--muted);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .mins { width: 62px; }
+  .pass { width: 120px; font-family: var(--body); }
+  .name-field { width: 180px; font-family: var(--body); }
+  .access-state { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+  /* Columns ------------------------------------------------------------- */
+
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 26px;
+    margin-top: 32px;
+    align-items: start;
+  }
+
+  .col { --accent: var(--accent-1); min-width: 0; }
+
+  .col-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .col-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    padding: 3px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--accent);
+    cursor: default;
+  }
+  .col-icon[data-editable="true"] { cursor: pointer; }
+  .col-icon[data-editable="true"]:hover { background: var(--surface); }
+  .col-icon svg { width: 16px; height: 16px; display: block; }
+
+  .col-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: none;
+    border: 0;
+    padding: 2px 0;
+    text-align: left;
+    cursor: default;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .col-name[data-editable="true"] { cursor: text; }
+  .col-name[data-editable="true"]:hover { text-decoration: underline dotted; }
+
+  .col-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-right: auto;
+  }
+
+  .col-act {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 2px;
+    text-transform: uppercase;
+  }
+  .col-act:hover { color: var(--ink); }
+  .col-act:disabled { opacity: .3; cursor: default; }
+  .col-act.remove { font-size: 13px; line-height: 1; }
+
+  .icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .icon-grid[hidden] { display: none; }
+
+  .icon-option {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .icon-option:hover { color: var(--ink); border-color: var(--rule); }
+  .icon-option[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+  .icon-option svg { width: 16px; height: 16px; display: block; }
+
+  .stack {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+    min-height: 56px;
+  }
+
+  .card {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 12px 12px 6px;
+    box-shadow: var(--shadow);
+  }
+  .card.dragging { opacity: .35; border-style: dashed; box-shadow: none; }
+  .locked .card { padding-left: 12px; }
+
+  .grip {
+    flex: none;
+    padding: 2px 4px;
+    color: var(--muted);
+    cursor: grab;
+    opacity: .5;
+    touch-action: none;
+  }
+  .card:hover .grip { opacity: 1; }
+  .grip:active { cursor: grabbing; }
+  .grip svg { width: 14px; height: 16px; display: block; }
+
+  .card-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+  .card-tools { display: flex; gap: 2px; opacity: .45; transition: opacity .15s ease; }
+  .card:hover .card-tools, .card:focus-within .card-tools { opacity: 1; }
+
+  .tool {
+    background: none;
+    border: 0;
+    padding: 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+  }
+  .tool:hover { color: var(--ink); background: var(--paper); }
+  .tool svg { width: 15px; height: 15px; display: block; }
+
+  .empty { font-size: 14px; color: var(--muted); padding: 14px 0; margin: 0; }
+
+  .add {
+    margin-top: 8px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 1px dashed var(--rule);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-family: var(--body);
+    font-size: 14px;
+    padding: 11px 14px;
+    cursor: pointer;
+  }
+  .add:hover { color: var(--ink); border-color: var(--muted); }
+
+  .add-col {
+    align-self: stretch;
+    min-height: 120px;
+    background: none;
+    border: 1px dashed var(--rule);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .add-col:hover { color: var(--ink); border-color: var(--muted); }
+  .add-col[hidden] { display: none; }
+
+  .field {
+    width: 100%;
+    font-family: var(--body);
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--muted);
+    border-radius: var(--radius);
+    padding: 12px 13px;
+    margin-top: 8px;
+  }
+  .card .field { margin: -3px 0 0; padding: 4px 6px; }
+  .col-head .field {
+    margin: 0;
+    padding: 3px 7px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+  }
+
+  .hint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 6px 0 0; }
+
+  /* Drawn card ----------------------------------------------------------- */
+
+  .sheet {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(3px);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .sheet[hidden] { display: none; }
+
+  .drawn {
+    --accent: var(--accent-1);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    border-radius: calc(var(--radius) + 2px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .18), var(--glow);
+    width: min(460px, 100%);
+    padding: 30px 30px 24px;
+    animation: deal .34s cubic-bezier(.2, .9, .25, 1);
+  }
+
+  @keyframes deal {
+    from { transform: translateY(22px) rotate(-1.6deg); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
+  .drawn-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .drawn-label svg { width: 16px; height: 16px; display: block; color: var(--accent); flex: none; }
+
+  .drawn-text {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 30px;
+    line-height: 1.2;
+    letter-spacing: -.015em;
+    margin: 16px 0 26px;
+  }
+
+  .clock {
+    font-family: var(--mono);
+    font-size: 34px;
+    letter-spacing: -.01em;
+    margin: 0 0 18px;
+  }
+  .clock[hidden] { display: none; }
+
+  .done { font-size: 14px; color: var(--muted); margin: -8px 0 18px; }
+  .done[hidden] { display: none; }
+
+  .drawn-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+
+  .btn {
+    font-family: var(--body);
+    font-size: 14px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--action); color: var(--action-text); border-color: var(--action); }
+  .btn.primary:hover { opacity: .84; }
+  .btn.quiet { border-color: transparent; color: var(--muted); margin-left: auto; }
+  .btn.quiet:hover { color: var(--ink); }
+  .btn.icon { padding: 9px; display: grid; place-items: center; color: var(--muted); }
+  .btn.icon svg { width: 15px; height: 15px; display: block; }
+  .btn.icon:hover { color: var(--ink); }
+  .btn.icon[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    z-index: 20;
+    max-width: min(520px, 90vw);
+    text-align: center;
+  }
+  .toast[hidden] { display: none; }
+
+  :focus-visible { outline: 2px solid var(--accent, var(--accent-1)); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>Deck</h1>
+      <p class="tally" id="tally">Loading<span class="readonly" id="readonly" hidden>Read only</span></p>
+    </div>
+    <div class="controls">
+      <select class="picker" id="picker" aria-label="Which deck"></select>
+      <button class="btn icon" id="cog" type="button" aria-expanded="false" aria-controls="settings" aria-label="Settings">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <circle cx="8" cy="8" r="3.4" />
+            <path d="M8 1.4V3M8 13v1.6M1.4 8H3M13 8h1.6M3.34 3.34 4.46 4.46M11.54 11.54l1.12 1.12M12.66 3.34 11.54 4.46M4.46 11.54l-1.12 1.12" />
+          </g>
+        </svg>
+      </button>
+      <button class="draw-any" id="drawAny" type="button">Draw a card</button>
+    </div>
+  </header>
+
+  <section class="settings" id="settings" hidden>
+    <div class="setting">
+      <span class="setting-label">Timer</span>
+      <div class="chips" id="chips"></div>
+      <input class="mins" id="custom" type="number" min="1" max="180" inputmode="numeric" aria-label="Timer minutes">
+    </div>
+    <div class="setting">
+      <span class="setting-label">Look</span>
+      <div class="chips" id="themes"></div>
+    </div>
+    <div class="setting">
+      <span class="setting-label">Access</span>
+      <div class="chips" id="lockedControls">
+        <input class="mins pass" id="password" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password">
+        <button class="chip" id="unlock" type="button">Unlock</button>
+      </div>
+      <div class="chips" id="unlockedControls" hidden>
+        <span class="access-state">Write mode is on</span>
+        <button class="chip" id="lock" type="button">Lock</button>
+      </div>
+    </div>
+    <div class="setting" id="deckTools">
+      <span class="setting-label">Deck</span>
+      <div class="chips" id="deckChips">
+        <button class="chip" id="newDeck" type="button">New deck</button>
+        <button class="chip" id="renameDeck" type="button">Rename</button>
+        <a class="chip" id="save" href="/api/export" download>Save a copy</a>
+        <button class="chip danger" id="deleteDeck" type="button">Delete</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="columns" id="columns"></div>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="drawnText">
+  <div class="drawn" id="drawn">
+    <p class="drawn-label">
+      <svg id="drawnGlyph" viewBox="0 0 16 16" aria-hidden="true"></svg>
+      <span id="drawnMode"></span>
+    </p>
+    <p class="drawn-text" id="drawnText"></p>
+    <p class="clock" id="clock" hidden>20:00</p>
+    <p class="done" id="doneNote" hidden></p>
+    <div class="drawn-actions">
+      <button class="btn primary" id="timerBtn" type="button">Start 20 minutes</button>
+      <button class="btn" id="again" type="button">Draw again</button>
+      <button class="btn quiet" id="close" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const PRESETS = [5, 10, 20, 30, 45, 60];
+const THEMES = [['auto', 'Auto'], ['dark', 'Dark'], ['pastel', 'Pastel']];
+const MAX_COLUMNS = 6;
+
+// Column icons. All drawn with currentColor so they take the column's accent in
+// whichever theme is on, rather than carrying colours of their own.
+const ICONS = {
+  dot: { label: 'Plain', svg: '<circle cx="8" cy="8" r="3.4" fill="currentColor"/>' },
+  music: { label: 'Music', svg: '<g fill="currentColor"><rect x="1.6" y="5" width="2.6" height="7.4" rx="1.3"/><rect x="6.7" y="2.2" width="2.6" height="10.2" rx="1.3"/><rect x="11.8" y="7.2" width="2.6" height="5.2" rx="1.3"/></g>' },
+  quiet: { label: 'Quiet', svg: '<path d="M2 8h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>' },
+  bed: { label: 'Rest', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12.6V4.8"/><path d="M2 8.6h9.4A2.6 2.6 0 0 1 14 11.2v1.4"/><path d="M4.9 8.6V7.2a1 1 0 0 1 1-1h1.7a1 1 0 0 1 1 1v1.4"/></g>' },
+  bolt: { label: 'High energy', svg: '<path d="M9.4 1.4 3.3 9.1h3.9l-.6 5.5 6.1-7.7H8.8z" fill="currentColor"/>' },
+  leaf: { label: 'Low energy', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13.6 2.4c.5 6.2-3.6 10.4-9.6 10.6C3.5 6.8 7.5 2.6 13.6 2.4z"/><path d="M3 13.6C5.9 10.5 8.5 8 11.6 6.1"/></g>' },
+  book: { label: 'Reading', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.6C6.9 3.6 5.2 3 3 3v8.6c2.2 0 3.9.6 5 1.6 1.1-1 2.8-1.6 5-1.6V3c-2.2 0-3.9.6-5 1.6z"/><path d="M8 4.6v8.6"/></g>' },
+  game: { label: 'Gaming', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="1.4" y="4.9" width="13.2" height="7.2" rx="3.2"/><path d="M4.7 7.3v2.4M3.5 8.5h2.4"/><circle cx="10.9" cy="7.9" r=".95" fill="currentColor" stroke="none"/><circle cx="12.4" cy="9.9" r=".95" fill="currentColor" stroke="none"/></g>' },
+  screen: { label: 'Watching', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.8" width="13" height="8.6" rx="1.6"/><path d="M5.6 14h4.8"/></g>' },
+  pencil: { label: 'Making', svg: '<path d="M11.4 2.2a1.7 1.7 0 0 1 2.4 2.4l-8.2 8.2L2.2 14l1.2-3.4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>' },
+  clock: { label: 'Timed', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.4V8l2.6 1.6"/></g>' },
+  moon: { label: 'Night', svg: '<path d="M13.4 10.3A5.9 5.9 0 0 1 5.7 2.6a6.1 6.1 0 1 0 7.7 7.7z" fill="currentColor"/>' },
+  people: { label: 'Social', svg: '<g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.1" cy="5.5" r="2.4"/><path d="M1.9 13.3c.4-2.3 2.1-3.7 4.2-3.7s3.8 1.4 4.2 3.7"/><path d="M11.1 3.5a2.4 2.4 0 0 1 0 4.3M11.7 9.9c1.6.3 2.7 1.5 3 3.4"/></g>' },
+};
+
+const TOOLS = {
+  grip: '<path d="M5.5 3.2h.01M5.5 8h.01M5.5 12.8h.01M10.5 3.2h.01M10.5 8h.01M10.5 12.8h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  edit: '<path d="M11.5 2.5a1.6 1.6 0 0 1 2.3 2.3l-8 8L2.5 14l1.2-3.3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  remove: '<path d="M3.5 4.5h9M6.5 4.5V3h3v1.5M5 4.5l.6 8.5h4.8L11 4.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+let cards = [];
+let decks = [];
+let columns = [];
+let deckId = null;
+let minutes = 20;
+let theme = 'auto';
+let canWrite = false;
+let lastDrawnId = null;
+let timer = null;
+let remaining = 1200;
+let dragging = null;
+let confirmingDelete = false;
+let openIconPicker = null;
+
+const el = {
+  tally: document.getElementById('tally'),
+  readonly: document.getElementById('readonly'),
+  picker: document.getElementById('picker'),
+  cog: document.getElementById('cog'),
+  settings: document.getElementById('settings'),
+  chips: document.getElementById('chips'),
+  custom: document.getElementById('custom'),
+  themes: document.getElementById('themes'),
+  password: document.getElementById('password'),
+  unlock: document.getElementById('unlock'),
+  lock: document.getElementById('lock'),
+  lockedControls: document.getElementById('lockedControls'),
+  unlockedControls: document.getElementById('unlockedControls'),
+  deckChips: document.getElementById('deckChips'),
+  newDeck: document.getElementById('newDeck'),
+  renameDeck: document.getElementById('renameDeck'),
+  deleteDeck: document.getElementById('deleteDeck'),
+  columns: document.getElementById('columns'),
+  drawAny: document.getElementById('drawAny'),
+  sheet: document.getElementById('sheet'),
+  drawn: document.getElementById('drawn'),
+  drawnGlyph: document.getElementById('drawnGlyph'),
+  drawnMode: document.getElementById('drawnMode'),
+  drawnText: document.getElementById('drawnText'),
+  clock: document.getElementById('clock'),
+  doneNote: document.getElementById('doneNote'),
+  timerBtn: document.getElementById('timerBtn'),
+  again: document.getElementById('again'),
+  close: document.getElementById('close'),
+  toast: document.getElementById('toast'),
+};
+
+let toastTimer = null;
+function toast(message) {
+  el.toast.textContent = message;
+  el.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 3400);
+}
+
+async function api(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  } catch {
+    throw new Error('Cannot reach the server. Is it still running?');
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    // A static file host answers with HTML or a bare 405 here, so say what that
+    // means rather than carrying on with half a response.
+    throw new Error(
+      `The server replied to ${path} with something that is not JSON (${res.status}). It is serving files rather than running the app.`,
+    );
+  }
+
+  if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+const svg = (markup, cls = '') => `<svg class="${cls}" viewBox="0 0 16 16" aria-hidden="true">${markup}</svg>`;
+const iconOf = (name) => (ICONS[name] ?? ICONS.dot);
+
+function deckColumns() {
+  return columns.filter((column) => column.deck === deckId);
+}
+
+function inDeck() {
+  return cards.filter((card) => card.deck === deckId);
+}
+
+/* Rendering --------------------------------------------------------------- */
+
+function render() {
+  const mine = inDeck();
+  const here = deckColumns();
+
+  el.tally.firstChild.textContent = mine.length === 1 ? '1 card' : `${mine.length} cards`;
+  el.drawAny.disabled = mine.length === 0;
+
+  document.body.classList.toggle('locked', !canWrite);
+  el.readonly.hidden = canWrite;
+  el.lockedControls.hidden = canWrite;
+  el.unlockedControls.hidden = !canWrite;
+  el.deckChips.hidden = !canWrite;
+  el.picker.disabled = decks.length < 2;
+
+  el.picker.innerHTML = '';
+  for (const deck of decks) {
+    const option = document.createElement('option');
+    option.value = deck.id;
+    option.textContent = deck.name;
+    option.selected = deck.id === deckId;
+    el.picker.append(option);
+  }
+  el.deleteDeck.disabled = decks.length < 2;
+
+  el.columns.innerHTML = '';
+  here.forEach((column, index) => el.columns.append(buildColumn(column, index, mine, here.length)));
+
+  if (canWrite && here.length < MAX_COLUMNS) {
+    const add = document.createElement('button');
+    add.className = 'add-col';
+    add.id = 'addColumn';
+    add.type = 'button';
+    add.textContent = '+ Column';
+    add.addEventListener('click', () => startNewColumn(add));
+    el.columns.append(add);
+  }
+}
+
+function buildColumn(column, index, mine, total) {
+  const section = document.createElement('section');
+  section.className = 'col';
+  section.dataset.column = column.id;
+  section.style.setProperty('--accent', `var(--accent-${(index % 6) + 1})`);
+
+  const here = mine.filter((card) => card.column === column.id);
+
+  const head = document.createElement('div');
+  head.className = 'col-head';
+  head.innerHTML = `
+    <button class="col-icon" type="button" data-editable="${canWrite}" aria-label="Change icon">${svg(iconOf(column.icon).svg)}</button>
+    <button class="col-name" type="button" data-editable="${canWrite}"></button>
+    <span class="col-count">${here.length}</span>
+    <button class="col-act" type="button" data-draw>Draw</button>
+    ${canWrite && total > 1 ? '<button class="col-act remove" type="button" data-remove aria-label="Delete column">&times;</button>' : ''}`;
+
+  head.querySelector('.col-name').textContent = column.name;
+  head.querySelector('[data-draw]').disabled = here.length === 0;
+  head.querySelector('[data-draw]').addEventListener('click', () => draw(column.id));
+
+  if (canWrite) {
+    head.querySelector('.col-icon').addEventListener('click', () => toggleIconPicker(section, column));
+    head.querySelector('.col-name').addEventListener('click', () => startRenameColumn(head, column));
+    head.querySelector('[data-remove]')?.addEventListener('click', () => removeColumn(column, here.length));
+  }
+  section.append(head);
+
+  const picker = document.createElement('div');
+  picker.className = 'icon-grid';
+  picker.hidden = true;
+  for (const [name, meta] of Object.entries(ICONS)) {
+    const option = document.createElement('button');
+    option.className = 'icon-option';
+    option.type = 'button';
+    option.dataset.icon = name;
+    option.title = meta.label;
+    option.setAttribute('aria-label', meta.label);
+    option.setAttribute('aria-pressed', String(name === column.icon));
+    option.innerHTML = svg(meta.svg);
+    option.addEventListener('click', () => setColumnIcon(column, name));
+    picker.append(option);
+  }
+  section.append(picker);
+
+  const stack = document.createElement('ul');
+  stack.className = 'stack';
+  stack.dataset.stack = column.id;
+
+  if (!here.length) {
+    const note = document.createElement('li');
+    note.className = 'empty';
+    note.textContent = 'Nothing here yet.';
+    stack.append(note);
+  } else {
+    for (const card of here) stack.append(buildCard(card));
+  }
+  section.append(stack);
+
+  if (canWrite) {
+    const add = document.createElement('button');
+    add.className = 'add';
+    add.type = 'button';
+    add.dataset.add = column.id;
+    add.textContent = 'Add a card';
+    add.addEventListener('click', () => startAdd(section, column));
+    section.append(add);
+  }
+
+  return section;
+}
+
+function buildCard(card) {
+  const li = document.createElement('li');
+  li.className = 'card';
+  li.dataset.id = card.id;
+  li.innerHTML = canWrite
+    ? `<span class="grip" draggable="true" aria-hidden="true">${svg(TOOLS.grip)}</span>
+       <span class="card-text"></span>
+       <span class="card-tools">
+         <button class="tool" type="button" data-act="edit" aria-label="Edit card">${svg(TOOLS.edit)}</button>
+         <button class="tool" type="button" data-act="remove" aria-label="Remove card">${svg(TOOLS.remove)}</button>
+       </span>`
+    : '<span class="card-text"></span>';
+  li.querySelector('.card-text').textContent = card.text;
+  return li;
+}
+
+/* Inline editing ---------------------------------------------------------- */
+
+// Swap an element for a text field. Enter saves, Escape abandons, blur saves.
+function inlineEdit(target, { value = '', placeholder = '', className = 'field', onSave }) {
+  const input = document.createElement('input');
+  input.className = className;
+  input.value = value;
+  input.placeholder = placeholder;
+  input.setAttribute('aria-label', placeholder || 'Edit');
+  target.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const finish = async (save) => {
+    if (settled) return;
+    settled = true;
+    const text = input.value.trim();
+    input.replaceWith(target);
+    if (save && text && text !== value) {
+      try {
+        await onSave(text);
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+  };
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') finish(true);
+    if (event.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+  return input;
+}
+
+function startAdd(section, column) {
+  const button = section.querySelector('[data-add]');
+  const input = document.createElement('input');
+  input.className = 'field';
+  input.placeholder = `Something for ${column.name}`;
+  input.setAttribute('aria-label', 'New card');
+
+  const hint = document.createElement('p');
+  hint.className = 'hint';
+  hint.textContent = 'Enter to add, Escape to stop';
+
+  button.replaceWith(input);
+  input.after(hint);
+  input.focus();
+
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    hint.remove();
+    input.replaceWith(button);
+  };
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key !== 'Enter') return;
+    const text = input.value.trim();
+    if (!text) return stop();
+
+    try {
+      cards.push(await api('/api/cards', {
+        method: 'POST',
+        body: JSON.stringify({ text, column: column.id }),
+      }));
+      render();
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(stop, 120));
+}
+
+function startRenameColumn(head, column) {
+  inlineEdit(head.querySelector('.col-name'), {
+    value: column.name,
+    placeholder: 'Column name',
+    onSave: async (name) => {
+      Object.assign(column, await api(`/api/columns/${column.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }));
+      render();
+    },
+  });
+}
+
+function startNewColumn(button) {
+  const input = document.createElement('input');
+  input.className = 'field';
+  input.placeholder = 'Name for the new column';
+  input.setAttribute('aria-label', 'New column');
+  button.replaceWith(input);
+  input.focus();
+
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    input.replaceWith(button);
+  };
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key !== 'Enter') return;
+    const name = input.value.trim();
+    if (!name) return stop();
+    settled = true;
+
+    try {
+      columns.push(await api('/api/columns', {
+        method: 'POST',
+        body: JSON.stringify({ deck: deckId, name }),
+      }));
+      render();
+    } catch (err) {
+      input.replaceWith(button);
+      toast(err.message);
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(stop, 120));
+}
+
+function toggleIconPicker(section, column) {
+  const picker = section.querySelector('.icon-grid');
+  const opening = picker.hidden;
+
+  if (openIconPicker && openIconPicker !== picker) openIconPicker.hidden = true;
+  picker.hidden = !opening;
+  openIconPicker = opening ? picker : null;
+}
+
+async function setColumnIcon(column, icon) {
+  openIconPicker = null;
+  try {
+    Object.assign(column, await api(`/api/columns/${column.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ icon }),
+    }));
+    render();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function removeColumn(column, count) {
+  try {
+    const result = await api(`/api/columns/${column.id}`, { method: 'DELETE' });
+    columns = columns.filter((item) => item.id !== column.id);
+    cards = cards.map((card) => (card.column === column.id ? { ...card, column: result.movedTo } : card));
+    render();
+    if (count) toast(`${count} ${count === 1 ? 'card' : 'cards'} moved to the next column.`);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/* Card actions ------------------------------------------------------------ */
+
+el.columns.addEventListener('click', async (event) => {
+  const tool = event.target.closest('.tool');
+  if (!tool) return;
+
+  const li = tool.closest('.card');
+  const card = cards.find((entry) => entry.id === li.dataset.id);
+  if (!card) return;
+
+  if (tool.dataset.act === 'edit') {
+    return inlineEdit(li.querySelector('.card-text'), {
+      value: card.text,
+      placeholder: 'Card text',
+      onSave: async (text) => {
+        Object.assign(card, await api(`/api/cards/${card.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ text }),
+        }));
+        render();
+      },
+    });
+  }
+
+  try {
+    await api(`/api/cards/${card.id}`, { method: 'DELETE' });
+    cards = cards.filter((entry) => entry.id !== card.id);
+    render();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+/* Drag and drop ----------------------------------------------------------- */
+
+// Which card the pointer currently sits above, so the dragged card can be
+// slotted in live rather than only landing on drop.
+function cardAfter(stack, y) {
+  const others = [...stack.querySelectorAll('.card:not(.dragging)')];
+  let closest = null;
+  let closestOffset = Number.NEGATIVE_INFINITY;
+
+  for (const other of others) {
+    const box = other.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closestOffset) {
+      closestOffset = offset;
+      closest = other;
+    }
+  }
+  return closest;
+}
+
+document.addEventListener('dragstart', (event) => {
+  const grip = event.target.closest('.grip');
+  const li = grip && grip.closest('.card');
+  if (!li) return;
+
+  dragging = li;
+  li.classList.add('dragging');
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', li.dataset.id);
+  }
+});
+
+document.addEventListener('dragover', (event) => {
+  if (!dragging) return;
+  const stack = event.target.closest('.stack');
+  if (!stack) return;
+
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+
+  const after = cardAfter(stack, event.clientY);
+  if (after) stack.insertBefore(dragging, after);
+  else stack.append(dragging);
+  stack.querySelector('.empty')?.remove();
+});
+
+document.addEventListener('drop', (event) => {
+  if (dragging) event.preventDefault();
+});
+
+document.addEventListener('dragend', async () => {
+  if (!dragging) return;
+  dragging.classList.remove('dragging');
+  dragging = null;
+  await saveArrangement();
+});
+
+function readArrangement() {
+  const items = [];
+  for (const stack of el.columns.querySelectorAll('[data-stack]')) {
+    for (const li of stack.querySelectorAll('.card')) {
+      items.push({ id: li.dataset.id, column: stack.dataset.stack });
+    }
+  }
+  return items;
+}
+
+// Mirror the server: the deck's cards are rewritten into the slots they already
+// occupy, so cards belonging to other decks never shift.
+function applyArrangement(items) {
+  const wanted = new Set(items.map((item) => item.id));
+  const slots = [];
+  cards.forEach((card, index) => {
+    if (wanted.has(card.id)) slots.push(index);
+  });
+
+  const ordered = items.map((item) => ({
+    ...cards.find((card) => card.id === item.id),
+    column: item.column,
+  }));
+  slots.forEach((slot, index) => {
+    cards[slot] = ordered[index];
+  });
+}
+
+async function saveArrangement() {
+  const items = readArrangement();
+  const before = cards.map((card) => ({ ...card }));
+
+  applyArrangement(items);
+  render();
+
+  try {
+    await api('/api/cards/arrange', { method: 'PUT', body: JSON.stringify({ items }) });
+  } catch (err) {
+    cards = before;
+    render();
+    toast(err.message);
+  }
+}
+
+/* Decks ------------------------------------------------------------------- */
+
+async function selectDeck(id) {
+  deckId = id;
+  render();
+  if (!canWrite) return;
+  try {
+    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ deck: id }) });
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function askForName(button, { value = '', placeholder, onSave }) {
+  const input = document.createElement('input');
+  input.className = 'name-field';
+  input.value = value;
+  input.placeholder = placeholder;
+  input.setAttribute('aria-label', placeholder);
+  button.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    input.replaceWith(button);
+  };
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key !== 'Enter') return;
+    const name = input.value.trim();
+    if (!name) return stop();
+    stop();
+    try {
+      await onSave(name);
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(stop, 120));
+}
+
+el.picker.addEventListener('change', () => selectDeck(el.picker.value));
+
+el.newDeck.addEventListener('click', () => {
+  askForName(el.newDeck, {
+    placeholder: 'Name for the new deck',
+    onSave: async (name) => {
+      const created = await api('/api/decks', { method: 'POST', body: JSON.stringify({ name }) });
+      decks.push(created.deck);
+      columns.push(created.column);
+      await selectDeck(created.deck.id);
+    },
+  });
+});
+
+el.renameDeck.addEventListener('click', () => {
+  const current = decks.find((deck) => deck.id === deckId);
+  askForName(el.renameDeck, {
+    value: current?.name ?? '',
+    placeholder: 'New name for this deck',
+    onSave: async (name) => {
+      Object.assign(current, await api(`/api/decks/${deckId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }));
+      render();
+    },
+  });
+});
+
+el.deleteDeck.addEventListener('click', async () => {
+  const count = inDeck().length;
+
+  if (!confirmingDelete) {
+    confirmingDelete = true;
+    el.deleteDeck.textContent = count
+      ? `Delete deck and ${count} ${count === 1 ? 'card' : 'cards'}?`
+      : 'Delete this deck?';
+    setTimeout(() => {
+      if (!confirmingDelete) return;
+      confirmingDelete = false;
+      el.deleteDeck.textContent = 'Delete';
+    }, 5000);
+    return;
+  }
+
+  confirmingDelete = false;
+  el.deleteDeck.textContent = 'Delete';
+
+  try {
+    await api(`/api/decks/${deckId}`, { method: 'DELETE' });
+    cards = cards.filter((card) => card.deck !== deckId);
+    columns = columns.filter((column) => column.deck !== deckId);
+    decks = decks.filter((deck) => deck.id !== deckId);
+    await selectDeck(decks[0].id);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+/* Settings ---------------------------------------------------------------- */
+
+function lengthWords() {
+  return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+}
+
+function clockText() {
+  const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+  const s = String(remaining % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function resetTimer() {
+  clearInterval(timer);
+  timer = null;
+  remaining = minutes * 60;
+  el.clock.hidden = true;
+  el.clock.textContent = clockText();
+  el.doneNote.hidden = true;
+  el.doneNote.textContent = `That is ${lengthWords()}. Carry on or stop, either is fine.`;
+  el.timerBtn.textContent = `Start ${lengthWords()}`;
+}
+
+function buildChips() {
+  for (const preset of PRESETS) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.dataset.min = preset;
+    chip.textContent = preset;
+    chip.setAttribute('aria-label', `${preset} minutes`);
+    chip.addEventListener('click', () => setMinutes(preset));
+    el.chips.append(chip);
+  }
+
+  for (const [value, label] of THEMES) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.dataset.theme = value;
+    chip.textContent = label;
+    chip.addEventListener('click', () => setTheme(value));
+    el.themes.append(chip);
+  }
+}
+
+function syncSettings() {
+  for (const chip of el.chips.children) {
+    chip.setAttribute('aria-pressed', String(Number(chip.dataset.min) === minutes));
+  }
+  for (const chip of el.themes.children) {
+    chip.setAttribute('aria-pressed', String(chip.dataset.theme === theme));
+  }
+  if (document.activeElement !== el.custom) el.custom.value = minutes;
+}
+
+async function setMinutes(next) {
+  const value = Number(next);
+  if (!Number.isInteger(value) || value < 1 || value > 180) {
+    return toast('Pick a whole number of minutes between 1 and 180.');
+  }
+
+  minutes = value;
+  resetTimer();
+  syncSettings();
+  if (!canWrite) return;
+
+  try {
+    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ minutes: value }) });
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function paintTheme(next) {
+  theme = next;
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('deck-theme', next); } catch {}
+  syncSettings();
+}
+
+async function setTheme(next) {
+  const previous = theme;
+  paintTheme(next);
+  if (!canWrite) return;
+
+  try {
+    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ theme: next }) });
+  } catch (err) {
+    paintTheme(previous);
+    toast(err.message);
+  }
+}
+
+async function unlock() {
+  const password = el.password.value;
+  if (!password) return;
+
+  el.unlock.disabled = true;
+  try {
+    const result = await api('/api/unlock', { method: 'POST', body: JSON.stringify({ password }) });
+    canWrite = result.canWrite;
+    el.password.value = '';
+    render();
+    toast('Write mode is on.');
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    el.unlock.disabled = false;
+  }
+}
+
+el.unlock.addEventListener('click', unlock);
+el.password.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') unlock();
+});
+
+el.lock.addEventListener('click', async () => {
+  try {
+    await api('/api/lock', { method: 'POST' });
+    canWrite = false;
+    render();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+el.cog.addEventListener('click', () => {
+  const open = el.settings.hidden;
+  el.settings.hidden = !open;
+  el.cog.setAttribute('aria-expanded', String(open));
+  if (open) syncSettings();
+});
+
+el.custom.addEventListener('change', () => setMinutes(el.custom.value));
+el.custom.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') setMinutes(el.custom.value);
+});
+
+/* Drawing ----------------------------------------------------------------- */
+
+function draw(columnId) {
+  let pool = inDeck().filter((card) => columnId === null || card.column === columnId);
+  if (!pool.length) return;
+  if (pool.length > 1) pool = pool.filter((card) => card.id !== lastDrawnId);
+
+  const card = pool[Math.floor(Math.random() * pool.length)];
+  lastDrawnId = card.id;
+  show(card);
+}
+
+function show(card) {
+  const here = deckColumns();
+  const index = here.findIndex((column) => column.id === card.column);
+  const column = here[index] ?? here[0];
+
+  resetTimer();
+  el.drawnText.textContent = card.text;
+  el.drawnMode.textContent = column?.name ?? '';
+  el.drawnGlyph.innerHTML = iconOf(column?.icon).svg;
+  el.drawn.style.setProperty('--accent', `var(--accent-${((index < 0 ? 0 : index) % 6) + 1})`);
+  el.drawn.style.animation = 'none';
+  void el.drawn.offsetWidth;
+  el.drawn.style.animation = '';
+  el.sheet.hidden = false;
+  el.close.focus();
+}
+
+el.timerBtn.addEventListener('click', () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+    el.timerBtn.textContent = 'Resume';
+    return;
+  }
+  if (remaining === 0) return resetTimer();
+
+  el.clock.hidden = false;
+  el.doneNote.hidden = true;
+  el.clock.textContent = clockText();
+  el.timerBtn.textContent = 'Pause';
+
+  timer = setInterval(() => {
+    remaining -= 1;
+    el.clock.textContent = clockText();
+    if (remaining > 0) return;
+    clearInterval(timer);
+    timer = null;
+    el.doneNote.hidden = false;
+    el.timerBtn.textContent = 'Reset';
+  }, 1000);
+});
+
+function closeSheet() {
+  resetTimer();
+  el.sheet.hidden = true;
+  el.drawAny.focus();
+}
+
+el.drawAny.addEventListener('click', () => draw(null));
+el.again.addEventListener('click', () => draw(null));
+el.close.addEventListener('click', closeSheet);
+el.sheet.addEventListener('click', (event) => {
+  if (event.target === el.sheet) closeSheet();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !el.sheet.hidden) closeSheet();
+});
+
+/* Start ------------------------------------------------------------------- */
+
+const THEME_NAMES = new Set(THEMES.map(([value]) => value));
+
+buildChips();
+
+api('/api/state')
+  .then((state) => {
+    const shapeOk = state
+      && Array.isArray(state.cards)
+      && Array.isArray(state.decks)
+      && Array.isArray(state.columns)
+      && state.decks.length
+      && state.columns.length
+      && state.settings
+      && typeof state.settings === 'object';
+
+    if (!shapeOk) {
+      throw new Error('The server did not return a deck. Check it is running the app, not just serving files.');
+    }
+
+    cards = state.cards;
+    decks = state.decks;
+    columns = state.columns;
+    canWrite = Boolean(state.canWrite);
+
+    // Each setting falls back on its own, so one missing field cannot wedge the
+    // whole page the way a single bad read used to.
+    const saved = state.settings;
+    deckId = decks.some((deck) => deck.id === saved.deck) ? saved.deck : decks[0].id;
+    minutes = Number.isInteger(saved.minutes) && saved.minutes > 0 ? saved.minutes : 20;
+    paintTheme(THEME_NAMES.has(saved.theme) ? saved.theme : 'auto');
+
+    resetTimer();
+    syncSettings();
+    render();
+  })
+  .catch((err) => {
+    el.tally.firstChild.textContent = 'Deck not loaded';
+    el.drawAny.disabled = true;
+    document.body.classList.add('locked');
+    toast(err.message);
+  });
+</script>
+</body>
+</html>

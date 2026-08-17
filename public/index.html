@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en-GB" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deck</title>
+<script>
+  // Reapply the last theme before first paint. The server stays the source of
+  // truth; this only stops a flash of the wrong colours while loading.
+  try {
+    const cached = localStorage.getItem('deck-theme');
+    if (cached) document.documentElement.dataset.theme = cached;
+  } catch {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="auto"] {
+    --paper: #E7E8EC;
+    --surface: #FBFBFC;
+    --ink: #171A20;
+    --muted: #6C7280;
+    --rule: #D3D6DD;
+    --danger: #A32B22;
+    --a1: #2C43C9;
+    --a2: #0F766E;
+    --a3: #6D3FC4;
+    --a4: #5C6B2F;
+    --a5: #4A4F5C;
+    --action: #171A20;
+    --action-text: #FBFBFC;
+    --radius: 3px;
+    --glow: none;
+    --shadow: 0 1px 2px rgba(23, 26, 32, .06), 0 6px 18px rgba(23, 26, 32, .05);
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    [data-theme="auto"] {
+      --paper: #14161B;
+      --surface: #1C1F27;
+      --ink: #E9EAEE;
+      --muted: #8F95A3;
+      --rule: #2A2E38;
+      --danger: #FF8F84;
+      --a1: #8093FF;
+      --a2: #3FBFAE;
+      --a3: #B69BFF;
+      --a4: #A8B96A;
+      --a5: #9BA2B0;
+      --action: #E9EAEE;
+      --action-text: #14161B;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .22);
+    }
+  }
+
+  [data-theme="dark"] {
+    --paper: #14161B;
+    --surface: #1C1F27;
+    --ink: #E9EAEE;
+    --muted: #8F95A3;
+    --rule: #2A2E38;
+    --danger: #FF8F84;
+    --a1: #8093FF;
+    --a2: #3FBFAE;
+    --a3: #B69BFF;
+    --a4: #A8B96A;
+    --a5: #9BA2B0;
+    --action: #E9EAEE;
+    --action-text: #14161B;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 18px rgba(0, 0, 0, .22);
+  }
+
+  [data-theme="pastel"] {
+    --paper: #FFF0F6;
+    --surface: #FFFFFF;
+    --ink: #4E2A3E;
+    --muted: #B47C9A;
+    --rule: #FBD8E7;
+    --danger: #D1477A;
+    --a1: #E4649E;
+    --a2: #A98FC4;
+    --a3: #4FB39C;
+    --a4: #E0894F;
+    --a5: #6E9BDD;
+    --action: #E4649E;
+    --action-text: #FFFFFF;
+    --radius: 14px;
+    --glow: 0 0 0 6px rgba(228, 100, 158, .09);
+    --shadow: 0 1px 2px rgba(196, 120, 158, .12), 0 8px 22px rgba(196, 120, 158, .16);
+  }
+
+  [data-theme="pastel"] body {
+    background-image:
+      radial-gradient(60% 45% at 88% 0%, rgba(255, 214, 232, .95), transparent 70%),
+      radial-gradient(50% 40% at 4% 8%, rgba(226, 216, 255, .7), transparent 72%);
+    background-attachment: fixed;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 40px 24px 80px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  .masthead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 40px;
+    letter-spacing: -.02em;
+    margin: 0;
+  }
+
+  .tally {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 4px 0 0;
+  }
+
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .picker {
+    font-family: var(--body);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 9px 14px;
+    max-width: 190px;
+    cursor: pointer;
+  }
+  .picker:hover { border-color: var(--muted); }
+
+  .draw-any {
+    font-family: var(--body);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--action-text);
+    background: var(--action);
+    border: 0;
+    border-radius: 999px;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: opacity .15s ease;
+  }
+  .draw-any:hover { opacity: .84; }
+  .draw-any:disabled { opacity: .35; cursor: default; }
+
+  .settings {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .settings[hidden] { display: none; }
+
+  .setting { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+  .setting-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    width: 58px;
+    flex: none;
+  }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--muted); }
+  .chip[aria-pressed="true"] {
+    background: var(--action);
+    color: var(--action-text);
+    border-color: var(--action);
+  }
+  .chip:disabled { opacity: .4; cursor: default; }
+  .chip.danger { color: var(--danger); }
+
+  .mins, .name-field {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--muted);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .mins { width: 62px; }
+  .name-field { width: 180px; font-family: var(--body); }
+
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+    gap: 26px;
+    margin-top: 32px;
+    align-items: start;
+  }
+
+  .col { --accent: var(--a1); }
+
+  .col-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .col-icon {
+    background: none;
+    border: 0;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+  }
+  .col-icon svg { width: 17px; height: 17px; display: block; }
+  .col-icon:hover { opacity: .7; }
+
+  .col-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    overflow-wrap: anywhere;
+  }
+
+  .col-count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-right: auto;
+  }
+
+  .draw-col {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .04em;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 2px;
+    text-transform: uppercase;
+  }
+  .draw-col:hover { color: var(--ink); }
+  .draw-col:disabled { opacity: .3; cursor: default; }
+
+  .col-tools { display: flex; gap: 1px; opacity: 0; transition: opacity .15s ease; }
+  .col:hover .col-tools, .col:focus-within .col-tools { opacity: 1; }
+  .col-tools .tool.confirming {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--danger);
+    padding: 3px 6px;
+  }
+
+  .palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 10px;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .palette[hidden] { display: none; }
+
+  .swatch {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+  }
+  .swatch svg { width: 17px; height: 17px; display: block; }
+  .swatch:hover { color: var(--ink); border-color: var(--rule); }
+  .swatch[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+
+  .stack {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+    min-height: 56px;
+  }
+
+  .card {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 12px 12px 12px 6px;
+    box-shadow: var(--shadow);
+  }
+  .card.dragging { opacity: .35; border-style: dashed; box-shadow: none; }
+
+  .grip {
+    flex: none;
+    padding: 2px 4px;
+    color: var(--muted);
+    cursor: grab;
+    opacity: .5;
+    touch-action: none;
+  }
+  .card:hover .grip { opacity: 1; }
+  .grip:active { cursor: grabbing; }
+  .grip svg { width: 14px; height: 16px; display: block; }
+
+  .card-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+  .card-tools { display: flex; gap: 2px; opacity: .45; transition: opacity .15s ease; }
+  .card:hover .card-tools, .card:focus-within .card-tools { opacity: 1; }
+
+  .tool {
+    background: none;
+    border: 0;
+    padding: 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+  }
+  .tool:hover { color: var(--ink); background: var(--paper); }
+  .tool svg { width: 15px; height: 15px; display: block; }
+
+  .empty { font-size: 14px; color: var(--muted); padding: 14px 0; margin: 0; }
+
+  .add, .new-col {
+    margin-top: 8px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 1px dashed var(--rule);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font-family: var(--body);
+    font-size: 14px;
+    padding: 11px 14px;
+    cursor: pointer;
+  }
+  .add:hover, .new-col:hover { color: var(--ink); border-color: var(--muted); }
+  .new-col { margin-top: 0; }
+
+  .col.new { padding-top: 1px; }
+  .col.new .palette { margin-top: 8px; }
+
+  .field {
+    width: 100%;
+    font-family: var(--body);
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--muted);
+    border-radius: var(--radius);
+    padding: 12px 13px;
+    margin-top: 8px;
+  }
+  .card .field { margin: -3px 0 0; padding: 4px 6px; }
+  .col-head .field { margin: 0; padding: 3px 7px; font-size: 13px; }
+
+  .hint { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 6px 0 0; }
+
+  .sheet {
+    position: fixed;
+    inset: 0;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(3px);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .sheet[hidden] { display: none; }
+
+  .drawn {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    border-radius: calc(var(--radius) + 2px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .18), var(--glow);
+    width: min(460px, 100%);
+    padding: 30px 30px 24px;
+    animation: deal .34s cubic-bezier(.2, .9, .25, 1);
+  }
+
+  @keyframes deal {
+    from { transform: translateY(22px) rotate(-1.6deg); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+
+  .drawn-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .drawn-label svg { width: 16px; height: 16px; display: block; color: var(--accent); flex: none; }
+
+  .drawn-text {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 30px;
+    line-height: 1.2;
+    letter-spacing: -.015em;
+    margin: 16px 0 26px;
+  }
+
+  .clock {
+    font-family: var(--mono);
+    font-size: 34px;
+    letter-spacing: -.01em;
+    margin: 0 0 18px;
+  }
+  .clock[hidden] { display: none; }
+
+  .done { font-size: 14px; color: var(--muted); margin: -8px 0 18px; }
+  .done[hidden] { display: none; }
+
+  .drawn-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+  }
+
+  .btn {
+    font-family: var(--body);
+    font-size: 14px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--action); color: var(--action-text); border-color: var(--action); }
+  .btn.primary:hover { opacity: .84; }
+  .btn.quiet { border-color: transparent; color: var(--muted); margin-left: auto; }
+  .btn.quiet:hover { color: var(--ink); }
+  .btn.icon { padding: 9px; display: grid; place-items: center; color: var(--muted); }
+  .btn.icon svg { width: 15px; height: 15px; display: block; }
+  .btn.icon:hover { color: var(--ink); }
+  .btn.icon[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    z-index: 20;
+  }
+  .toast[hidden] { display: none; }
+
+  :focus-visible { outline: 2px solid var(--a1); outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <h1>Deck</h1>
+      <p class="tally" id="tally">Loading</p>
+    </div>
+    <div class="controls">
+      <select class="picker" id="picker" aria-label="Which deck"></select>
+      <button class="btn icon" id="cog" type="button" aria-expanded="false" aria-controls="settings" aria-label="Settings">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+            <circle cx="8" cy="8" r="3.4" />
+            <path d="M8 1.4V3M8 13v1.6M1.4 8H3M13 8h1.6M3.34 3.34 4.46 4.46M11.54 11.54l1.12 1.12M12.66 3.34 11.54 4.46M4.46 11.54l-1.12 1.12" />
+          </g>
+        </svg>
+      </button>
+      <button class="draw-any" id="drawAny" type="button">Draw a card</button>
+    </div>
+  </header>
+
+  <section class="settings" id="settings" hidden>
+    <div class="setting">
+      <span class="setting-label">Timer</span>
+      <div class="chips" id="chips"></div>
+      <input class="mins" id="custom" type="number" min="1" max="180" inputmode="numeric" aria-label="Timer minutes">
+    </div>
+    <div class="setting">
+      <span class="setting-label">Look</span>
+      <div class="chips" id="themes"></div>
+    </div>
+    <div class="setting">
+      <span class="setting-label">Deck</span>
+      <div class="chips">
+        <button class="chip" id="newDeck" type="button">New deck</button>
+        <button class="chip" id="renameDeck" type="button">Rename</button>
+        <button class="chip danger" id="deleteDeck" type="button">Delete</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="columns" id="columns"></div>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="drawnText">
+  <div class="drawn" id="drawn">
+    <p class="drawn-label">
+      <span id="drawnIcon"></span>
+      <span id="drawnMode"></span>
+    </p>
+    <p class="drawn-text" id="drawnText"></p>
+    <p class="clock" id="clock" hidden>20:00</p>
+    <p class="done" id="doneNote" hidden></p>
+    <div class="drawn-actions">
+      <button class="btn primary" id="timerBtn" type="button">Start 20 minutes</button>
+      <button class="btn" id="again" type="button">Draw again</button>
+      <button class="btn quiet" id="close" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const STROKE = 'fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"';
+
+const ICONS = {
+  stack: '<g fill="currentColor"><rect x="2.5" y="3" width="11" height="2.6" rx="1.3"/><rect x="2.5" y="6.7" width="11" height="2.6" rx="1.3"/><rect x="2.5" y="10.4" width="11" height="2.6" rx="1.3"/></g>',
+  music: '<g fill="currentColor"><rect x="2" y="6" width="2.6" height="8" rx="1.3"/><rect x="6.7" y="2" width="2.6" height="12" rx="1.3"/><rect x="11.4" y="8" width="2.6" height="6" rx="1.3"/></g>',
+  quiet: '<rect x="1.5" y="7.3" width="13" height="1.4" rx=".7" fill="currentColor"/>',
+  bed: `<g ${STROKE}><path d="M2 13V4.4M2 8.6h8.6a3.4 3.4 0 0 1 3.4 3.4V13M4.7 6.5h2.2"/></g>`,
+  bolt: '<path d="M9.6 1.4 3.5 9.3h3.4l-.7 5.3 6.3-8.1H9.1z" fill="currentColor"/>',
+  bulb: `<g ${STROKE}><path d="M6.3 12.5h3.4M6.9 14.3h2.2M8 1.9a4.3 4.3 0 0 1 2.7 7.6c-.6.5-.9 1.2-.9 1.9H6.2c0-.7-.3-1.4-.9-1.9A4.3 4.3 0 0 1 8 1.9Z"/></g>`,
+  book: `<g ${STROKE}><path d="M8 4.7S6.3 3.3 2.8 3.5v8.6c3.5-.2 5.2 1.3 5.2 1.3s1.7-1.5 5.2-1.3V3.5C9.7 3.3 8 4.7 8 4.7ZM8 4.7v8.7"/></g>`,
+  game: `<g ${STROKE}><rect x="1.6" y="4.9" width="12.8" height="7.3" rx="3.4"/><path d="M4.5 8.5h2.1M5.55 7.45v2.1"/></g><circle cx="10.6" cy="8" r=".9" fill="currentColor"/><circle cx="12.2" cy="9.8" r=".9" fill="currentColor"/>`,
+  pencil: `<g ${STROKE}><path d="M11.6 2.3a1.7 1.7 0 0 1 2.4 2.4l-8.3 8.3L2.3 14l1.1-3.4z"/></g>`,
+  sparkle: '<g fill="currentColor"><path d="M6.6 1.5c.5 2.9 1.8 4.2 4.7 4.7-2.9.5-4.2 1.8-4.7 4.7-.5-2.9-1.8-4.2-4.7-4.7 2.9-.5 4.2-1.8 4.7-4.7Z"/><path d="M12 9.4c.26 1.5.98 2.2 2.5 2.5-1.52.3-2.24 1-2.5 2.5-.26-1.5-.98-2.2-2.5-2.5 1.52-.3 2.24-1 2.5-2.5Z"/></g>',
+  moon: '<path d="M13.5 10.2A6 6 0 0 1 6 2.6a6 6 0 1 0 7.5 7.6Z" fill="currentColor"/>',
+  heart: '<path d="M8 13.7 2.9 8.6a3 3 0 0 1 4.2-4.3l.9.8.9-.8a3 3 0 0 1 4.2 4.3z" fill="currentColor"/>',
+  clock: `<g ${STROKE}><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.6 1.7"/></g>`,
+};
+
+const ICON_ORDER = Object.keys(ICONS);
+const ACCENTS = ['var(--a1)', 'var(--a2)', 'var(--a3)', 'var(--a4)', 'var(--a5)'];
+const PRESETS = [5, 10, 20, 30, 45, 60];
+const THEMES = [['auto', 'Auto'], ['dark', 'Dark'], ['pastel', 'Pastel']];
+
+const TOOLS = {
+  grip: '<path d="M5.5 3.2h.01M5.5 8h.01M5.5 12.8h.01M10.5 3.2h.01M10.5 8h.01M10.5 12.8h.01" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  edit: '<path d="M11.5 2.5a1.6 1.6 0 0 1 2.3 2.3l-8 8L2.5 14l1.2-3.3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>',
+  move: '<path d="M5.5 3.5 2.5 6.5l3 3M2.5 6.5H13M10.5 12.5l3-3-3-3M13.5 9.5H3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+  remove: '<path d="M3.5 4.5h9M6.5 4.5V3h3v1.5M5 4.5l.6 8.5h4.8L11 4.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+let cards = [];
+let decks = [];
+let columns = [];
+let deckId = null;
+let minutes = 20;
+let theme = 'auto';
+let lastDrawnId = null;
+let timer = null;
+let remaining = 1200;
+let dragging = null;
+let confirmingDeckDelete = false;
+
+const el = {
+  tally: document.getElementById('tally'),
+  picker: document.getElementById('picker'),
+  cog: document.getElementById('cog'),
+  settings: document.getElementById('settings'),
+  chips: document.getElementById('chips'),
+  custom: document.getElementById('custom'),
+  themes: document.getElementById('themes'),
+  newDeck: document.getElementById('newDeck'),
+  renameDeck: document.getElementById('renameDeck'),
+  deleteDeck: document.getElementById('deleteDeck'),
+  columns: document.getElementById('columns'),
+  drawAny: document.getElementById('drawAny'),
+  sheet: document.getElementById('sheet'),
+  drawn: document.getElementById('drawn'),
+  drawnIcon: document.getElementById('drawnIcon'),
+  drawnMode: document.getElementById('drawnMode'),
+  drawnText: document.getElementById('drawnText'),
+  clock: document.getElementById('clock'),
+  doneNote: document.getElementById('doneNote'),
+  timerBtn: document.getElementById('timerBtn'),
+  again: document.getElementById('again'),
+  close: document.getElementById('close'),
+  toast: document.getElementById('toast'),
+};
+
+let toastTimer = null;
+function toast(message) {
+  el.toast.textContent = message;
+  el.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 3400);
+}
+
+async function api(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  } catch {
+    throw new Error('Cannot reach the server. Is it still running?');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+  return data;
+}
+
+const svg = (markup) => `<svg viewBox="0 0 16 16" aria-hidden="true">${markup}</svg>`;
+const iconSvg = (name) => svg(ICONS[name] ?? ICONS.stack);
+const toolSvg = (name) => svg(TOOLS[name]);
+
+const myColumns = () => columns.filter((col) => col.deck === deckId);
+const inColumn = (id) => cards.filter((card) => card.column === id);
+const inDeck = () => cards.filter((card) => card.deck === deckId);
+
+/* Rendering -------------------------------------------------------------- */
+
+function paletteMarkup(selected) {
+  return ICON_ORDER.map((name) => `
+    <button class="swatch" type="button" data-icon="${name}" aria-label="${name}"
+      aria-pressed="${name === selected}">${iconSvg(name)}</button>`).join('');
+}
+
+function render() {
+  const mine = inDeck();
+  el.tally.textContent = mine.length === 1 ? '1 card' : `${mine.length} cards`;
+  el.drawAny.disabled = mine.length === 0;
+
+  el.picker.innerHTML = '';
+  for (const deck of decks) {
+    const option = document.createElement('option');
+    option.value = deck.id;
+    option.textContent = deck.name;
+    option.selected = deck.id === deckId;
+    el.picker.append(option);
+  }
+  el.deleteDeck.disabled = decks.length < 2;
+
+  const mineCols = myColumns();
+  el.columns.innerHTML = '';
+
+  mineCols.forEach((col, index) => {
+    const here = inColumn(col.id);
+    const section = document.createElement('section');
+    section.className = 'col';
+    section.dataset.column = col.id;
+    section.style.setProperty('--accent', ACCENTS[index % ACCENTS.length]);
+    section.innerHTML = `
+      <div class="col-head">
+        <button class="col-icon" type="button" data-act="icon" aria-label="Change icon">${iconSvg(col.icon)}</button>
+        <span class="col-name"></span>
+        <span class="col-count">${here.length}</span>
+        <button class="draw-col" type="button" data-act="draw" ${here.length ? '' : 'disabled'}>Draw</button>
+        <span class="col-tools">
+          <button class="tool" type="button" data-act="rename" aria-label="Rename column">${toolSvg('edit')}</button>
+          <button class="tool" type="button" data-act="delete-column" aria-label="Delete column"
+            ${mineCols.length < 2 ? 'disabled' : ''}>${toolSvg('remove')}</button>
+        </span>
+      </div>
+      <div class="palette" hidden>${paletteMarkup(col.icon)}</div>
+      <ul class="stack" data-stack></ul>
+      <button class="add" type="button" data-act="add">Add a card</button>`;
+    section.querySelector('.col-name').textContent = col.name;
+
+    const stack = section.querySelector('[data-stack]');
+    if (!here.length) {
+      const note = document.createElement('li');
+      note.className = 'empty';
+      note.textContent = 'Nothing here yet.';
+      stack.append(note);
+    } else {
+      for (const card of here) {
+        const li = document.createElement('li');
+        li.className = 'card';
+        li.dataset.id = card.id;
+        li.innerHTML = `
+          <span class="grip" draggable="true" aria-hidden="true">${toolSvg('grip')}</span>
+          <span class="card-text"></span>
+          <span class="card-tools">
+            <button class="tool" type="button" data-act="edit" aria-label="Edit card">${toolSvg('edit')}</button>
+            <button class="tool" type="button" data-act="remove" aria-label="Remove card">${toolSvg('remove')}</button>
+          </span>`;
+        li.querySelector('.card-text').textContent = card.text;
+        stack.append(li);
+      }
+    }
+
+    el.columns.append(section);
+  });
+
+  const adder = document.createElement('section');
+  adder.className = 'col new';
+  adder.style.setProperty('--accent', ACCENTS[mineCols.length % ACCENTS.length]);
+  adder.innerHTML = '<button class="new-col" type="button" data-act="new-column">New column</button>';
+  el.columns.append(adder);
+}
+
+/* Columns ---------------------------------------------------------------- */
+
+function columnOf(node) {
+  const section = node.closest('.col');
+  return columns.find((col) => col.id === section?.dataset.column);
+}
+
+// Swap an element for a text field, the same way adding a card works.
+function askForName(anchor, { value = '', placeholder, onSave, restore }) {
+  const input = document.createElement('input');
+  input.className = 'field';
+  input.value = value;
+  input.placeholder = placeholder;
+  input.setAttribute('aria-label', placeholder);
+  anchor.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    if (restore) restore();
+    else input.replaceWith(anchor);
+  };
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key !== 'Enter') return;
+    const name = input.value.trim();
+    if (!name) return stop();
+    settled = true;
+    try {
+      await onSave(name);
+    } catch (err) {
+      toast(err.message);
+      render();
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(stop, 120));
+}
+
+function openNewColumn(section) {
+  let icon = 'stack';
+  section.innerHTML = `
+    <div class="col-head">
+      <span class="col-name">New column</span>
+    </div>
+    <div class="palette">${paletteMarkup(icon)}</div>
+    <input class="field" placeholder="What kind of thing?" aria-label="Column name">
+    <p class="hint">Enter to create, Escape to stop</p>`;
+
+  const input = section.querySelector('.field');
+  input.focus();
+
+  section.querySelector('.palette').addEventListener('click', (event) => {
+    const swatch = event.target.closest('.swatch');
+    if (!swatch) return;
+    icon = swatch.dataset.icon;
+    for (const other of section.querySelectorAll('.swatch')) {
+      other.setAttribute('aria-pressed', String(other.dataset.icon === icon));
+    }
+    input.focus();
+  });
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return render();
+    if (event.key !== 'Enter') return;
+    const name = input.value.trim();
+    if (!name) return render();
+
+    try {
+      columns.push(await api('/api/columns', {
+        method: 'POST',
+        body: JSON.stringify({ name, icon, deck: deckId }),
+      }));
+    } catch (err) {
+      toast(err.message);
+    }
+    render();
+  });
+}
+
+async function handleColumnAction(act, target) {
+  const section = target.closest('.col');
+
+  if (act === 'new-column') return openNewColumn(section);
+
+  const column = columnOf(target);
+  if (!column) return;
+
+  if (act === 'draw') return draw(column.id);
+
+  if (act === 'icon') {
+    const palette = section.querySelector('.palette');
+    palette.hidden = !palette.hidden;
+    return;
+  }
+
+  if (act === 'rename') {
+    return askForName(section.querySelector('.col-name'), {
+      value: column.name,
+      placeholder: 'Column name',
+      restore: render,
+      onSave: async (name) => {
+        Object.assign(column, await api(`/api/columns/${column.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ name }),
+        }));
+        render();
+      },
+    });
+  }
+
+  if (act === 'delete-column') {
+    const count = inColumn(column.id).length;
+    if (target.classList.contains('confirming')) {
+      try {
+        await api(`/api/columns/${column.id}`, { method: 'DELETE' });
+        cards = cards.filter((card) => card.column !== column.id);
+        columns = columns.filter((entry) => entry.id !== column.id);
+      } catch (err) {
+        toast(err.message);
+      }
+      return render();
+    }
+
+    target.classList.add('confirming');
+    target.innerHTML = count ? `Delete ${count}?` : 'Delete?';
+    setTimeout(() => {
+      if (target.isConnected) render();
+    }, 5000);
+    return;
+  }
+
+  if (act === 'add') return startAdd(section, column);
+}
+
+/* Cards ------------------------------------------------------------------ */
+
+function startEdit(li, card) {
+  const slot = li.querySelector('.card-text');
+  const input = document.createElement('input');
+  input.className = 'field';
+  input.value = card.text;
+  input.setAttribute('aria-label', 'Card text');
+  slot.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const finish = async (save) => {
+    if (settled) return;
+    settled = true;
+    const text = input.value.trim();
+    if (save && text && text !== card.text) {
+      try {
+        Object.assign(card, await api(`/api/cards/${card.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ text }),
+        }));
+      } catch (err) {
+        toast(err.message);
+      }
+    }
+    render();
+  };
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') finish(true);
+    if (event.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+function startAdd(section, column) {
+  const button = section.querySelector('[data-act="add"]');
+  const input = document.createElement('input');
+  input.className = 'field';
+  input.placeholder = `Something for ${column.name}`;
+  input.setAttribute('aria-label', 'New card');
+
+  const hint = document.createElement('p');
+  hint.className = 'hint';
+  hint.textContent = 'Enter to add, Escape to stop';
+
+  button.replaceWith(input);
+  input.after(hint);
+  input.focus();
+
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    hint.remove();
+    input.replaceWith(button);
+  };
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key !== 'Enter') return;
+    const text = input.value.trim();
+    if (!text) return stop();
+
+    try {
+      cards.push(await api('/api/cards', {
+        method: 'POST',
+        body: JSON.stringify({ text, column: column.id }),
+      }));
+      const count = section.querySelector('.col-count');
+      const stack = section.querySelector('[data-stack]');
+      stack.querySelector('.empty')?.remove();
+
+      const li = document.createElement('li');
+      li.className = 'card';
+      li.dataset.id = cards[cards.length - 1].id;
+      li.innerHTML = `
+        <span class="grip" draggable="true" aria-hidden="true">${toolSvg('grip')}</span>
+        <span class="card-text"></span>
+        <span class="card-tools">
+          <button class="tool" type="button" data-act="edit" aria-label="Edit card">${toolSvg('edit')}</button>
+          <button class="tool" type="button" data-act="remove" aria-label="Remove card">${toolSvg('remove')}</button>
+        </span>`;
+      li.querySelector('.card-text').textContent = text;
+      stack.append(li);
+
+      count.textContent = inColumn(column.id).length;
+      section.querySelector('[data-act="draw"]').disabled = false;
+      el.tally.textContent = inDeck().length === 1 ? '1 card' : `${inDeck().length} cards`;
+      el.drawAny.disabled = false;
+
+      input.value = '';
+      input.focus();
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(stop, 120));
+}
+
+document.addEventListener('click', async (event) => {
+  const swatch = event.target.closest('.col:not(.new) .swatch');
+  if (swatch) {
+    const column = columnOf(swatch);
+    try {
+      Object.assign(column, await api(`/api/columns/${column.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ icon: swatch.dataset.icon }),
+      }));
+    } catch (err) {
+      toast(err.message);
+    }
+    return render();
+  }
+
+  const target = event.target.closest('[data-act]');
+  if (!target) return;
+  const act = target.dataset.act;
+
+  if (['new-column', 'draw', 'icon', 'rename', 'delete-column', 'add'].includes(act)) {
+    return handleColumnAction(act, target);
+  }
+
+  const li = target.closest('.card');
+  const card = cards.find((entry) => entry.id === li?.dataset.id);
+  if (!card) return;
+
+  if (act === 'edit') return startEdit(li, card);
+
+  if (act === 'remove') {
+    try {
+      await api(`/api/cards/${card.id}`, { method: 'DELETE' });
+      cards = cards.filter((entry) => entry.id !== card.id);
+      render();
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+});
+
+/* Drag and drop ---------------------------------------------------------- */
+
+// Which card the pointer sits above, so the dragged card slots in live rather
+// than only landing on drop.
+function cardAfter(stack, y) {
+  let closest = null;
+  let closestOffset = Number.NEGATIVE_INFINITY;
+
+  for (const other of stack.querySelectorAll('.card:not(.dragging)')) {
+    const box = other.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closestOffset) {
+      closestOffset = offset;
+      closest = other;
+    }
+  }
+  return closest;
+}
+
+document.addEventListener('dragstart', (event) => {
+  const li = event.target.closest('.grip')?.closest('.card');
+  if (!li) return;
+
+  dragging = li;
+  li.classList.add('dragging');
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', li.dataset.id);
+  }
+});
+
+document.addEventListener('dragover', (event) => {
+  if (!dragging) return;
+  const stack = event.target.closest('.stack');
+  if (!stack) return;
+
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+
+  const after = cardAfter(stack, event.clientY);
+  if (after) stack.insertBefore(dragging, after);
+  else stack.append(dragging);
+  stack.querySelector('.empty')?.remove();
+});
+
+document.addEventListener('drop', (event) => {
+  if (dragging) event.preventDefault();
+});
+
+document.addEventListener('dragend', async () => {
+  if (!dragging) return;
+  dragging.classList.remove('dragging');
+  dragging = null;
+  await saveArrangement();
+});
+
+function readArrangement() {
+  const items = [];
+  for (const section of el.columns.querySelectorAll('.col:not(.new)')) {
+    for (const li of section.querySelectorAll('.card')) {
+      items.push({ id: li.dataset.id, column: section.dataset.column });
+    }
+  }
+  return items;
+}
+
+// Mirror the server: the deck's cards are rewritten into the slots they already
+// occupy, so cards in other decks never shift.
+function applyArrangement(items) {
+  const wanted = new Set(items.map((item) => item.id));
+  const slots = [];
+  cards.forEach((card, index) => {
+    if (wanted.has(card.id)) slots.push(index);
+  });
+
+  const ordered = items.map((item) => ({
+    ...cards.find((card) => card.id === item.id),
+    column: item.column,
+  }));
+  slots.forEach((slot, index) => {
+    cards[slot] = ordered[index];
+  });
+}
+
+async function saveArrangement() {
+  const items = readArrangement();
+  const before = cards.map((card) => ({ ...card }));
+
+  applyArrangement(items);
+  render();
+
+  try {
+    await api('/api/cards/arrange', { method: 'PUT', body: JSON.stringify({ items }) });
+  } catch (err) {
+    cards = before;
+    render();
+    toast(err.message);
+  }
+}
+
+/* Decks ------------------------------------------------------------------ */
+
+async function selectDeck(id) {
+  deckId = id;
+  render();
+  try {
+    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ deck: id }) });
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function askInChip(button, { value = '', placeholder, onSave }) {
+  const input = document.createElement('input');
+  input.className = 'name-field';
+  input.value = value;
+  input.placeholder = placeholder;
+  input.setAttribute('aria-label', placeholder);
+  button.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const stop = () => {
+    if (settled) return;
+    settled = true;
+    input.replaceWith(button);
+  };
+
+  input.addEventListener('keydown', async (event) => {
+    if (event.key === 'Escape') return stop();
+    if (event.key !== 'Enter') return;
+    const name = input.value.trim();
+    if (!name) return stop();
+    stop();
+    try {
+      await onSave(name);
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(stop, 120));
+}
+
+el.picker.addEventListener('change', () => selectDeck(el.picker.value));
+
+el.newDeck.addEventListener('click', () => {
+  askInChip(el.newDeck, {
+    placeholder: 'Name for the new deck',
+    onSave: async (name) => {
+      const created = await api('/api/decks', { method: 'POST', body: JSON.stringify({ name }) });
+      decks.push(created.deck);
+      columns = created.columns;
+      await selectDeck(created.deck.id);
+    },
+  });
+});
+
+el.renameDeck.addEventListener('click', () => {
+  const current = decks.find((deck) => deck.id === deckId);
+  askInChip(el.renameDeck, {
+    value: current?.name ?? '',
+    placeholder: 'New name for this deck',
+    onSave: async (name) => {
+      Object.assign(current, await api(`/api/decks/${deckId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }));
+      render();
+    },
+  });
+});
+
+el.deleteDeck.addEventListener('click', async () => {
+  const count = inDeck().length;
+
+  if (!confirmingDeckDelete) {
+    confirmingDeckDelete = true;
+    el.deleteDeck.textContent = count
+      ? `Delete deck and ${count} ${count === 1 ? 'card' : 'cards'}?`
+      : 'Delete this deck?';
+    setTimeout(() => {
+      if (!confirmingDeckDelete) return;
+      confirmingDeckDelete = false;
+      el.deleteDeck.textContent = 'Delete';
+    }, 5000);
+    return;
+  }
+
+  confirmingDeckDelete = false;
+  el.deleteDeck.textContent = 'Delete';
+
+  try {
+    await api(`/api/decks/${deckId}`, { method: 'DELETE' });
+    cards = cards.filter((card) => card.deck !== deckId);
+    columns = columns.filter((col) => col.deck !== deckId);
+    decks = decks.filter((deck) => deck.id !== deckId);
+    await selectDeck(decks[0].id);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+/* Settings --------------------------------------------------------------- */
+
+function lengthWords() {
+  return minutes === 1 ? '1 minute' : `${minutes} minutes`;
+}
+
+function clockText() {
+  const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+  const s = String(remaining % 60).padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function resetTimer() {
+  clearInterval(timer);
+  timer = null;
+  remaining = minutes * 60;
+  el.clock.hidden = true;
+  el.clock.textContent = clockText();
+  el.doneNote.hidden = true;
+  el.doneNote.textContent = `That is ${lengthWords()}. Carry on or stop, either is fine.`;
+  el.timerBtn.textContent = `Start ${lengthWords()}`;
+}
+
+function buildChips() {
+  for (const preset of PRESETS) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.dataset.min = preset;
+    chip.textContent = preset;
+    chip.setAttribute('aria-label', `${preset} minutes`);
+    chip.addEventListener('click', () => setMinutes(preset));
+    el.chips.append(chip);
+  }
+
+  for (const [value, label] of THEMES) {
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.type = 'button';
+    chip.dataset.theme = value;
+    chip.textContent = label;
+    chip.addEventListener('click', () => setTheme(value));
+    el.themes.append(chip);
+  }
+}
+
+function syncSettings() {
+  for (const chip of el.chips.children) {
+    chip.setAttribute('aria-pressed', String(Number(chip.dataset.min) === minutes));
+  }
+  for (const chip of el.themes.children) {
+    chip.setAttribute('aria-pressed', String(chip.dataset.theme === theme));
+  }
+  if (document.activeElement !== el.custom) el.custom.value = minutes;
+}
+
+async function setMinutes(next) {
+  const value = Number(next);
+  if (!Number.isInteger(value) || value < 1 || value > 180) {
+    return toast('Pick a whole number of minutes between 1 and 180.');
+  }
+  try {
+    const saved = await api('/api/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ minutes: value }),
+    });
+    minutes = saved.minutes;
+    resetTimer();
+    syncSettings();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function paintTheme(next) {
+  theme = next;
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('deck-theme', next); } catch {}
+  syncSettings();
+}
+
+async function setTheme(next) {
+  const previous = theme;
+  paintTheme(next);
+  try {
+    await api('/api/settings', { method: 'PATCH', body: JSON.stringify({ theme: next }) });
+  } catch (err) {
+    paintTheme(previous);
+    toast(err.message);
+  }
+}
+
+el.cog.addEventListener('click', () => {
+  const open = el.settings.hidden;
+  el.settings.hidden = !open;
+  el.cog.setAttribute('aria-expanded', String(open));
+  if (open) syncSettings();
+});
+
+el.custom.addEventListener('change', () => setMinutes(el.custom.value));
+el.custom.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') setMinutes(el.custom.value);
+});
+
+/* Drawing ---------------------------------------------------------------- */
+
+function draw(columnId) {
+  let pool = columnId ? inColumn(columnId) : inDeck();
+  if (!pool.length) return;
+  if (pool.length > 1) pool = pool.filter((card) => card.id !== lastDrawnId);
+
+  const card = pool[Math.floor(Math.random() * pool.length)];
+  lastDrawnId = card.id;
+  show(card);
+}
+
+function show(card) {
+  const column = columns.find((col) => col.id === card.column);
+  const index = myColumns().findIndex((col) => col.id === card.column);
+
+  resetTimer();
+  el.drawnText.textContent = card.text;
+  el.drawnMode.textContent = column?.name ?? '';
+  el.drawnIcon.innerHTML = iconSvg(column?.icon);
+  el.drawn.style.setProperty('--accent', ACCENTS[Math.max(index, 0) % ACCENTS.length]);
+  el.drawn.style.animation = 'none';
+  void el.drawn.offsetWidth;
+  el.drawn.style.animation = '';
+  el.sheet.hidden = false;
+  el.close.focus();
+}
+
+el.timerBtn.addEventListener('click', () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+    el.timerBtn.textContent = 'Resume';
+    return;
+  }
+  if (remaining === 0) return resetTimer();
+
+  el.clock.hidden = false;
+  el.doneNote.hidden = true;
+  el.clock.textContent = clockText();
+  el.timerBtn.textContent = 'Pause';
+
+  timer = setInterval(() => {
+    remaining -= 1;
+    el.clock.textContent = clockText();
+    if (remaining > 0) return;
+    clearInterval(timer);
+    timer = null;
+    el.doneNote.hidden = false;
+    el.timerBtn.textContent = 'Reset';
+  }, 1000);
+});
+
+function closeSheet() {
+  resetTimer();
+  el.sheet.hidden = true;
+  el.drawAny.focus();
+}
+
+el.drawAny.addEventListener('click', () => draw(null));
+el.again.addEventListener('click', () => draw(null));
+el.close.addEventListener('click', closeSheet);
+el.sheet.addEventListener('click', (event) => {
+  if (event.target === el.sheet) closeSheet();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !el.sheet.hidden) closeSheet();
+});
+
+/* Start ------------------------------------------------------------------ */
+
+buildChips();
+
+api('/api/state')
+  .then((state) => {
+    cards = state.cards;
+    decks = state.decks;
+    columns = state.columns;
+    deckId = state.settings.deck;
+    minutes = state.settings.minutes;
+    paintTheme(state.settings.theme);
+    resetTimer();
+    syncSettings();
+    render();
+  })
+  .catch((err) => {
+    el.tally.textContent = 'Deck not loaded';
+    toast(err.message);
+  });
+</script>
+</body>
+</html>

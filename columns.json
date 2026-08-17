@@ -1,0 +1,4 @@
+[
+  { "id": "with-music", "name": "With music", "icon": "music", "deck": "default" },
+  { "id": "without-music", "name": "Without music", "icon": "quiet", "deck": "default" }
+]

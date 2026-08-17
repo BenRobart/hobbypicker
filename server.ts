@@ -26,6 +26,41 @@ const DEFAULT_DECK: Deck = { id: "default", name: "Cards" };
 const THEMES = new Set(["auto", "dark", "pastel"]);
 const DEFAULT_SETTINGS: Settings = { minutes: 20, theme: "auto", deck: DEFAULT_DECK.id };
 
+// Set DECK_PASSWORD in the app's environment variables to change it.
+const PASSWORD = Deno.env.get("DECK_PASSWORD") || "qwerty";
+const COOKIE = "deck_write";
+
+async function hash(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// The cookie holds the hash of the password rather than the password itself, and
+// is derived from it so it survives restarts and works across every instance.
+const TOKEN = await hash(PASSWORD);
+
+function sameSecret(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function canWrite(req: Request): boolean {
+  const jar = req.headers.get("cookie") ?? "";
+  const entry = jar.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${COOKIE}=`));
+  return entry ? sameSecret(entry.slice(COOKIE.length + 1), TOKEN) : false;
+}
+
+function writeCookie(req: Request, unlock: boolean): string {
+  const proto = req.headers.get("x-forwarded-proto") ?? new URL(req.url).protocol.replace(":", "");
+  const secure = proto === "https" ? "; Secure" : "";
+  const life = unlock ? "Max-Age=31536000" : "Max-Age=0";
+  return `${COOKIE}=${unlock ? TOKEN : ""}; Path=/; ${life}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -202,7 +237,27 @@ async function handleApi(req: Request, url: URL): Promise<Response> {
       cards: cards.map((card) => (known.has(card.deck) ? card : { ...card, deck: decks[0].id })),
       decks,
       settings: await readSettings(decks),
+      canWrite: canWrite(req),
     });
+  }
+
+  if (url.pathname === "/api/unlock" && req.method === "POST") {
+    const body = await readBody(req);
+    await sleep(300); // A guess costs a third of a second.
+
+    if (typeof body.password !== "string" || !sameSecret(await hash(body.password), TOKEN)) {
+      return json({ error: "That is not the password." }, 401);
+    }
+    return json({ canWrite: true }, 200, { "Set-Cookie": writeCookie(req, true) });
+  }
+
+  if (url.pathname === "/api/lock" && req.method === "POST") {
+    return json({ canWrite: false }, 200, { "Set-Cookie": writeCookie(req, false) });
+  }
+
+  // Everything past here changes something, so it needs the password.
+  if (req.method !== "GET" && !canWrite(req)) {
+    return json({ error: "Locked. Enter the password to make changes." }, 403);
   }
 
   if (url.pathname === "/api/export" && req.method === "GET") {
